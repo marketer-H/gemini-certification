@@ -197,7 +197,10 @@ def send_slack(webhook_url: str, messages: list):
 
 
 def send_email(config: dict, messages: list):
-    from email.message import EmailMessage
+    import base64
+    from email.mime.text import MIMEText
+    from email.mime.multipart import MIMEMultipart
+    from email.header import Header
     ec = config.get("email", {})
     if not ec.get("enabled") or not ec.get("username"):
         return
@@ -206,21 +209,19 @@ def send_email(config: dict, messages: list):
         print("[이메일 알림 실패] 비밀번호 없음. config.json 또는 SMTP_PASSWORD 환경변수를 설정하세요.")
         return
     try:
-        # 본문에서 non-breaking space 등 특수 공백 정리
         body = "\n\n".join(messages).replace("\xa0", " ")
-        msg = EmailMessage()
+        is_report = len(messages) == 1 and "미만 도서" in messages[0]
+        subject = "[도서 평점 리포트] 현재 평점 미만 도서 현황" if is_report \
+                  else f"[도서 평점 알림] {len(messages)}건 평점 하락 감지"
+        msg = MIMEMultipart()
         msg["From"] = ec["username"]
         msg["To"] = ec["to"]
-        is_report = len(messages) == 1 and "미만 도서" in messages[0]
-        if is_report:
-            msg["Subject"] = "[도서 평점 리포트] 현재 평점 미만 도서 현황"
-        else:
-            msg["Subject"] = f"[도서 평점 알림] {len(messages)}건 평점 하락 감지"
-        msg.set_content(body, charset="utf-8")
+        msg["Subject"] = Header(subject, "utf-8")
+        msg.attach(MIMEText(body, "plain", "utf-8"))
         with smtplib.SMTP(ec["smtp_server"], ec["smtp_port"]) as server:
             server.starttls()
             server.login(ec["username"], password)
-            server.send_message(msg)
+            server.sendmail(ec["username"], ec["to"], msg.as_bytes(linesep=b"\r\n"))
         print("[이메일 알림 발송 완료]")
     except Exception as e:
         print(f"[이메일 알림 실패] {e}")
