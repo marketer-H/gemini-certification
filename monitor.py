@@ -198,9 +198,6 @@ def send_slack(webhook_url: str, messages: list):
 
 def send_email(config: dict, messages: list):
     import base64
-    from email.mime.text import MIMEText
-    from email.mime.multipart import MIMEMultipart
-    from email.header import Header
     ec = config.get("email", {})
     if not ec.get("enabled") or not ec.get("username"):
         return
@@ -213,15 +210,27 @@ def send_email(config: dict, messages: list):
         is_report = len(messages) == 1 and "미만 도서" in messages[0]
         subject = "[도서 평점 리포트] 현재 평점 미만 도서 현황" if is_report \
                   else f"[도서 평점 알림] {len(messages)}건 평점 하락 감지"
-        msg = MIMEMultipart()
-        msg["From"] = ec["username"]
-        msg["To"] = ec["to"]
-        msg["Subject"] = Header(subject, "utf-8")
-        msg.attach(MIMEText(body, "plain", "utf-8"))
+
+        # Subject, Body 모두 base64 인코딩 → 순수 ASCII만 전송
+        subject_b64 = "=?utf-8?b?" + base64.b64encode(subject.encode("utf-8")).decode("ascii") + "?="
+        body_b64    = base64.b64encode(body.encode("utf-8")).decode("ascii")
+
+        # RFC 2822 raw 메시지 직접 구성 (비ASCII 문자 없음)
+        raw = "\r\n".join([
+            f"From: {ec['username']}",
+            f"To: {ec['to']}",
+            f"Subject: {subject_b64}",
+            "MIME-Version: 1.0",
+            'Content-Type: text/plain; charset="utf-8"',
+            "Content-Transfer-Encoding: base64",
+            "",
+            body_b64,
+        ])
+
         with smtplib.SMTP(ec["smtp_server"], ec["smtp_port"]) as server:
             server.starttls()
             server.login(ec["username"], password)
-            server.sendmail(ec["username"], ec["to"], msg.as_bytes(linesep=b"\r\n"))
+            server.sendmail(ec["username"], [ec["to"]], raw)
         print("[이메일 알림 발송 완료]")
     except Exception as e:
         print(f"[이메일 알림 실패] {e}")
