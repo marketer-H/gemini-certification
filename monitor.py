@@ -5,15 +5,15 @@
 """
 
 import json
+import os
 import re
 import sys
-import time
 import smtplib
+import threading
 import warnings
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from datetime import datetime
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
 
 import requests
 
@@ -22,23 +22,21 @@ warnings.filterwarnings("ignore")
 # ─── 파일 경로 ────────────────────────────────────────────────
 BASE_DIR = Path(__file__).parent
 CONFIG_FILE = BASE_DIR / "config.json"
-ISBNS_FILE = BASE_DIR / "isbns.txt"
-STATE_FILE = BASE_DIR / "state.json"
-CACHE_FILE = BASE_DIR / "isbn_cache.json"  # ISBN → 교보 saleCmdtid 캐시
+ISBNS_FILE  = BASE_DIR / "isbns.txt"
+STATE_FILE  = BASE_DIR / "state.json"
+CACHE_FILE  = BASE_DIR / "isbn_cache.json"
 
 # ─── 공통 헤더 ────────────────────────────────────────────────
 _UA = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 )
-
 HTML_HEADERS = {
     "User-Agent": _UA,
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     "Accept-Language": "ko-KR,ko;q=0.9",
     "Accept-Encoding": "identity",
 }
-
 JSON_HEADERS = {**HTML_HEADERS, "Accept": "application/json"}
 
 
@@ -47,20 +45,17 @@ def load_config() -> dict:
     with open(CONFIG_FILE) as f:
         return json.load(f)
 
-
 def load_isbns() -> list:
-    lines = ISBNS_FILE.read_text().splitlines()
     valid = []
-    for line in lines:
+    for line in ISBNS_FILE.read_text().splitlines():
         isbn = line.strip()
         if not isbn:
             continue
         if len(isbn) != 13 or not isbn.isdigit():
-            print(f"[SKIP] 잘못된 ISBN 형식: {isbn}")
+            print(f"[SKIP] 잘못된 ISBN: {isbn}")
             continue
         valid.append(isbn)
     return valid
-
 
 def load_state() -> dict:
     if STATE_FILE.exists():
@@ -68,11 +63,9 @@ def load_state() -> dict:
             return json.load(f)
     return {}
 
-
 def save_state(state: dict):
     with open(STATE_FILE, "w") as f:
         json.dump(state, f, ensure_ascii=False, indent=2)
-
 
 def load_cache() -> dict:
     if CACHE_FILE.exists():
@@ -80,149 +73,146 @@ def load_cache() -> dict:
             return json.load(f)
     return {}
 
-
 def save_cache(cache: dict):
     with open(CACHE_FILE, "w") as f:
         json.dump(cache, f, ensure_ascii=False, indent=2)
 
 
 # ─── 알라딘 ───────────────────────────────────────────────────
-def get_aladin_rating(isbn: str, session: requests.Session) -> tuple:
-    """알라딘 평점 조회. (rating, title) 반환"""
+def get_aladin_rating(isbn: str) -> tuple:
     url = f"https://www.aladin.co.kr/shop/wproduct.aspx?ISBN={isbn}"
     try:
-        r = session.get(url, headers=HTML_HEADERS, timeout=15)
+        r = requests.get(url, headers=HTML_HEADERS, timeout=15)
         if r.status_code != 200:
             return None, ""
-        html = r.text
-        m = re.search(r'"ratingValue":\s*"?([0-9]+(?:\.[0-9]+)?)"?', html)
+        m = re.search(r'"ratingValue":\s*"?([0-9]+(?:\.[0-9]+)?)"?', r.text)
         rating = float(m.group(1)) if m else None
-        t = re.search(r'<meta property="og:title" content="([^"]+)"', html)
-        title = t.group(1).strip() if t else isbn
+        t = re.search(r'<meta property="og:title" content="([^"]+)"', r.text)
+        title = t.group(1).strip() if t else ""
         return rating, title
-    except Exception as e:
-        print(f"    [알라딘 오류] {e}")
+    except Exception:
         return None, ""
 
 
 # ─── 예스24 ───────────────────────────────────────────────────
-def init_yes24_session() -> requests.Session:
-    """Yes24 세션 초기화 (쿠키 획득)"""
-    session = requests.Session()
-    try:
-        session.get("https://www.yes24.com/", headers=HTML_HEADERS, timeout=15)
-    except Exception:
-        pass
-    return session
-
+_yes24_lock = threading.Lock()  # Yes24는 동시 요청 차단 → 순차 처리
 
 def get_yes24_rating(isbn: str, session: requests.Session) -> tuple:
-    """예스24 검색 결과에서 평점 조회"""
     url = f"https://www.yes24.com/Product/Search?query={isbn}&domain=BOOK"
-    try:
-        r = session.get(url, headers=HTML_HEADERS, timeout=15)
-        if r.status_code != 200:
+    with _yes24_lock:
+        try:
+            r = session.get(url, headers=HTML_HEADERS, timeout=15)
+            if r.status_code != 200:
+                return None, ""
+            m = re.search(r'rating_grade.*?yes_b">([0-9]+(?:\.[0-9]+)?)', r.text, re.DOTALL)
+            rating = float(m.group(1)) if m else None
+            t = re.search(r'class="gd_name"[^>]*>([^<]+)', r.text)
+            title = t.group(1).strip() if t else ""
+            return rating, title
+        except Exception:
             return None, ""
-        html = r.text
-        m = re.search(r'rating_grade.*?yes_b">([0-9]+(?:\.[0-9]+)?)', html, re.DOTALL)
-        rating = float(m.group(1)) if m else None
-        t = re.search(r'class="gd_name"[^>]*>([^<]+)', html)
-        title = t.group(1).strip() if t else isbn
-        return rating, title
-    except Exception as e:
-        print(f"    [예스24 오류] {e}")
-        return None, ""
 
 
 # ─── 교보문고 ─────────────────────────────────────────────────
-def get_kyobo_product_id(isbn: str, cache: dict, session: requests.Session) -> str:
-    """ISBN → 교보문고 saleCmdtid 변환 (캐시 활용)"""
-    if isbn in cache:
-        return cache[isbn]
+def get_kyobo_rating(isbn: str, cache: dict, cache_lock: threading.Lock) -> tuple:
+    # product ID 조회 (캐시 우선)
+    with cache_lock:
+        product_id = cache.get(isbn)
 
-    url = f"https://search.kyobobook.co.kr/search?keyword={isbn}&gbCode=TOT&target=total"
-    try:
-        r = session.get(url, headers={**HTML_HEADERS, "Referer": "https://www.kyobobook.co.kr/"}, timeout=15)
-        html = r.text
-        # data-bid="{isbn}" 인 항목의 data-pid 추출
-        m = re.search(rf'data-pid="(S\d+)"[^>]*data-bid="{isbn}"', html)
-        if not m:
-            m = re.search(rf'data-bid="{isbn}"[^>]*data-pid="(S\d+)"', html)
-        if m:
-            product_id = m.group(1)
-            cache[isbn] = product_id
-            return product_id
-    except Exception as e:
-        print(f"    [교보 검색 오류] {e}")
-    return None
+    if not product_id:
+        url = f"https://search.kyobobook.co.kr/search?keyword={isbn}&gbCode=TOT&target=total"
+        try:
+            r = requests.get(url, headers={**HTML_HEADERS, "Referer": "https://www.kyobobook.co.kr/"}, timeout=15)
+            m = re.search(rf'data-pid="(S\d+)"[^>]*data-bid="{isbn}"', r.text)
+            if not m:
+                m = re.search(rf'data-bid="{isbn}"[^>]*data-pid="(S\d+)"', r.text)
+            if m:
+                product_id = m.group(1)
+                with cache_lock:
+                    cache[isbn] = product_id
+        except Exception:
+            return None, ""
 
-
-def get_kyobo_rating(isbn: str, cache: dict, session: requests.Session) -> tuple:
-    """교보문고 평점 조회"""
-    product_id = get_kyobo_product_id(isbn, cache, session)
     if not product_id:
         return None, ""
 
-    url = f"https://product.kyobobook.co.kr/api/review/statistics?saleCmdtid={product_id}"
+    # 평점 조회
     try:
-        r = session.get(
-            url,
+        r = requests.get(
+            f"https://product.kyobobook.co.kr/api/review/statistics?saleCmdtid={product_id}",
             headers={**JSON_HEADERS, "Referer": f"https://product.kyobobook.co.kr/detail/{product_id}"},
             timeout=15,
         )
-        data = r.json()
-        inner = data.get("data") or {}
+        inner = r.json().get("data") or {}
         avg = inner.get("revwRvgrAvg")
         rating = float(avg) if avg is not None else None
-
-        # 교보 상품 페이지에서 제목 가져오기 (캐시에 없을 때만)
-        title_key = f"_title_{isbn}"
-        if title_key not in cache:
-            try:
-                rp = session.get(
-                    f"https://product.kyobobook.co.kr/detail/{product_id}",
-                    headers=HTML_HEADERS, timeout=15
-                )
-                tm = re.search(r'<meta property="og:title" content="([^"]+)"', rp.text)
-                cache[title_key] = tm.group(1).strip() if tm else isbn
-            except Exception:
-                cache[title_key] = isbn
-
-        return rating, cache[title_key]
-    except Exception as e:
-        print(f"    [교보 평점 오류] {e}")
+    except Exception:
         return None, ""
+
+    # 제목 조회 (캐시 우선)
+    title_key = f"_title_{isbn}"
+    with cache_lock:
+        title = cache.get(title_key, "")
+
+    if not title:
+        try:
+            rp = requests.get(
+                f"https://product.kyobobook.co.kr/detail/{product_id}",
+                headers=HTML_HEADERS, timeout=15
+            )
+            tm = re.search(r'<meta property="og:title" content="([^"]+)"', rp.text)
+            title = tm.group(1).strip() if tm else ""
+            with cache_lock:
+                cache[title_key] = title
+        except Exception:
+            pass
+
+    return rating, title
+
+
+# ─── ISBN 1개 처리 ────────────────────────────────────────────
+def process_isbn(isbn: str, stores: list, yes24_session: requests.Session,
+                 cache: dict, cache_lock: threading.Lock) -> dict:
+    """한 ISBN의 모든 서점 평점을 조회. {store: (rating, title)} 반환"""
+    results = {}
+    for store in stores:
+        if store == "aladin":
+            results[store] = get_aladin_rating(isbn)
+        elif store == "yes24":
+            results[store] = get_yes24_rating(isbn, yes24_session)
+        elif store == "kyobo":
+            results[store] = get_kyobo_rating(isbn, cache, cache_lock)
+    return results
 
 
 # ─── 알림 ─────────────────────────────────────────────────────
 def send_slack(webhook_url: str, messages: list):
     if not webhook_url:
         return
-    text = "\n\n".join(messages)
     try:
-        requests.post(webhook_url, json={"text": text}, timeout=10)
+        requests.post(webhook_url, json={"text": "\n\n".join(messages)}, timeout=10)
         print("[Slack 알림 발송 완료]")
     except Exception as e:
         print(f"[Slack 알림 실패] {e}")
 
 
 def send_email(config: dict, messages: list):
-    import os
+    from email.message import EmailMessage
     ec = config.get("email", {})
     if not ec.get("enabled") or not ec.get("username"):
         return
-    # 비밀번호: config > 환경변수 SMTP_PASSWORD 순으로 확인
     password = ec.get("password") or os.environ.get("SMTP_PASSWORD", "")
     if not password:
         print("[이메일 알림 실패] 비밀번호 없음. config.json 또는 SMTP_PASSWORD 환경변수를 설정하세요.")
         return
     try:
-        body = "\n\n".join(messages)
-        msg = MIMEMultipart()
+        # 본문에서 non-breaking space 등 특수 공백 정리
+        body = "\n\n".join(messages).replace("\xa0", " ")
+        msg = EmailMessage()
         msg["From"] = ec["username"]
         msg["To"] = ec["to"]
         msg["Subject"] = f"[도서 평점 알림] {len(messages)}건 평점 하락 감지"
-        msg.attach(MIMEText(body, "plain", "utf-8"))
+        msg.set_content(body, charset="utf-8")
         with smtplib.SMTP(ec["smtp_server"], ec["smtp_port"]) as server:
             server.starttls()
             server.login(ec["username"], password)
@@ -234,98 +224,111 @@ def send_email(config: dict, messages: list):
 
 # ─── 메인 ─────────────────────────────────────────────────────
 def run():
-    # --init 옵션: 베이스라인만 저장하고 알림 없이 종료
     init_mode = "--init" in sys.argv
 
-    config = load_config()
+    config    = load_config()
     threshold = config["threshold"]
-    isbns = load_isbns()
-    state = load_state()
-    cache = load_cache()
-    stores = config.get("stores", ["aladin", "yes24", "kyobo"])
-    delay = config.get("request_delay_seconds", 0.5)
+    isbns     = load_isbns()
+    state     = load_state()
+    cache     = load_cache()
+    stores    = config.get("stores", ["aladin", "yes24", "kyobo"])
+    workers   = config.get("workers", 8)
 
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    mode_label = " [초기화 모드 - 알림 없이 베이스라인 저장]" if init_mode else ""
+    mode_label = " [초기화 모드]" if init_mode else ""
     print(f"\n{'='*60}")
     print(f"도서 평점 모니터 실행: {now}{mode_label}")
-    print(f"대상 도서: {len(isbns)}권 | 임계값: {threshold} | 서점: {', '.join(stores)}")
+    print(f"대상 도서: {len(isbns)}권 | 임계값: {threshold} | 병렬: {workers}개")
     print(f"{'='*60}\n")
 
-    # 세션 초기화
-    aladin_session = requests.Session()
-    yes24_session = init_yes24_session()
-    kyobo_session = requests.Session()
+    # Yes24 세션 1회 초기화 (쿠키 획득)
+    yes24_session = requests.Session()
+    try:
+        yes24_session.get("https://www.yes24.com/", headers=HTML_HEADERS, timeout=15)
+    except Exception:
+        pass
 
-    alerts = []
+    cache_lock  = threading.Lock()
+    print_lock  = threading.Lock()
+    state_lock  = threading.Lock()
+    alerts      = []
+    alerts_lock = threading.Lock()
+    done        = [0]
 
-    for i, isbn in enumerate(isbns, 1):
-        print(f"[{i}/{len(isbns)}] ISBN {isbn}")
-        isbn_state = state.setdefault(isbn, {})
+    def handle_isbn(isbn: str):
+        results = process_isbn(isbn, stores, yes24_session, cache, cache_lock)
 
-        scrapers = {
-            "aladin": lambda isbn=isbn: get_aladin_rating(isbn, aladin_session),
-            "yes24": lambda isbn=isbn: get_yes24_rating(isbn, yes24_session),
-            "kyobo": lambda isbn=isbn: get_kyobo_rating(isbn, cache, kyobo_session),
-        }
+        # 알라딘에서 가져온 제목을 다른 서점 알림에도 공유
+        shared_title = ""
+        for store in stores:
+            _, t = results.get(store, (None, ""))
+            if t and t != isbn:
+                shared_title = t
+                break
 
-        store_urls = {
-            "aladin": f"https://www.aladin.co.kr/shop/wproduct.aspx?ISBN={isbn}",
-            "yes24": f"https://www.yes24.com/Product/Search?query={isbn}&domain=BOOK",
-            "kyobo": f"https://product.kyobobook.co.kr/detail/{cache.get(isbn, isbn)}",
-        }
+        isbn_alerts = []
+        with state_lock:
+            isbn_state = state.setdefault(isbn, {})
 
         for store in stores:
-            rating, title = scrapers[store]()
-            time.sleep(delay)
+            rating, title = results.get(store, (None, ""))
+            book_name = title or shared_title or isbn
 
-            prev = isbn_state.get(store)
+            with state_lock:
+                prev = isbn_state.get(store)
+                isbn_state[store] = rating if rating is not None else prev
 
             if rating is None:
-                print(f"  {store:8s} → 평점 없음")
                 continue
 
-            print(f"  {store:8s} → {rating:.1f}  (이전: {prev if prev is not None else '없음'})")
-            isbn_state[store] = rating
+            if not init_mode and rating < threshold and (prev is None or rating < prev):
+                store_url = {
+                    "aladin": f"https://www.aladin.co.kr/shop/wproduct.aspx?ISBN={isbn}",
+                    "yes24":  f"https://www.yes24.com/Product/Search?query={isbn}&domain=BOOK",
+                    "kyobo":  f"https://product.kyobobook.co.kr/detail/{cache.get(isbn, isbn)}",
+                }[store]
+                isbn_alerts.append(
+                    f"⚠️ 평점 하락 감지!\n"
+                    f"  서점: {store}\n"
+                    f"  도서: {book_name} (ISBN: {isbn})\n"
+                    f"  현재 평점: {rating:.1f} (이전: {f'{prev:.1f}' if prev is not None else '최초 확인'}) / 임계값: {threshold}\n"
+                    f"  URL: {store_url}"
+                )
 
-            # 초기화 모드에서는 알림 없이 저장만
-            if init_mode:
-                continue
+        with state_lock:
+            state[isbn] = isbn_state
+            done[0] += 1
+            n = done[0]
 
-            # 알림 조건: threshold 아래이고, 이전보다 낮거나 최초 확인
-            if rating < threshold:
-                if prev is None or rating < prev:
-                    book_name = title if title and title != isbn else isbn
-                    # 교보 URL은 캐시가 업데이트된 후 반영
-                    url = store_urls["kyobo"] if store == "kyobo" else store_urls[store]
-                    if store == "kyobo" and isbn in cache:
-                        url = f"https://product.kyobobook.co.kr/detail/{cache[isbn]}"
-                    msg = (
-                        f"⚠️ 평점 하락 감지!\n"
-                        f"  서점: {store}\n"
-                        f"  도서: {book_name}\n"
-                        f"  ISBN: {isbn}\n"
-                        f"  현재 평점: {rating:.1f} (이전: {f'{prev:.1f}' if prev is not None else '최초 확인'}) / 임계값: {threshold}\n"
-                        f"  URL: {url}"
-                    )
-                    alerts.append(msg)
-                    print(f"  *** 알림 대상 ***")
+        rating_str = " | ".join(
+            f"{s}: {results[s][0]:.1f}" if results.get(s) and results[s][0] is not None else f"{s}: -"
+            for s in stores
+        )
+        alert_mark = " *** 알림 ***" if isbn_alerts else ""
+        with print_lock:
+            print(f"[{n}/{len(isbns)}] {isbn}  {rating_str}{alert_mark}")
 
-        state[isbn] = isbn_state
+        if isbn_alerts:
+            with alerts_lock:
+                alerts.extend(isbn_alerts)
 
-    # 상태 및 캐시 저장
+    # 병렬 실행
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        futures = {executor.submit(handle_isbn, isbn): isbn for isbn in isbns}
+        for f in as_completed(futures):
+            try:
+                f.result()
+            except Exception as e:
+                with print_lock:
+                    print(f"  [오류] {futures[f]}: {e}")
+
     save_state(state)
     save_cache(cache)
 
-    if init_mode:
-        print(f"\n{'='*60}")
-        print("초기화 완료. 이제 'python3 monitor.py' 로 모니터링을 시작하세요.")
-        print(f"{'='*60}\n")
-        return
-
-    # 알림 출력 및 발송
     print(f"\n{'='*60}")
-    if alerts:
+    if init_mode:
+        print("초기화 완료. 이제 'python3 monitor.py' 로 모니터링을 시작하세요.")
+    elif alerts:
         print(f"알림 {len(alerts)}건 발생:\n")
         for msg in alerts:
             print(msg)
