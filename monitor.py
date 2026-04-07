@@ -211,7 +211,11 @@ def send_email(config: dict, messages: list):
         msg = EmailMessage()
         msg["From"] = ec["username"]
         msg["To"] = ec["to"]
-        msg["Subject"] = f"[도서 평점 알림] {len(messages)}건 평점 하락 감지"
+        is_report = len(messages) == 1 and messages[0].startswith("[") and "미만 도서" in messages[0]
+        if is_report:
+            msg["Subject"] = f"[도서 평점 리포트] 평점 {config.get('threshold', 9.5)} 미만 도서 현황"
+        else:
+            msg["Subject"] = f"[도서 평점 알림] {len(messages)}건 평점 하락 감지"
         msg.set_content(body, charset="utf-8")
         with smtplib.SMTP(ec["smtp_server"], ec["smtp_port"]) as server:
             server.starttls()
@@ -259,6 +263,8 @@ def report():
         return
 
     rows.sort(key=lambda x: x[0])  # 낮은 평점 순
+
+    # 콘솔 출력
     print(f"\n{'='*60}")
     print(f"현재 평점 {threshold} 미만 도서 ({len(rows)}건)")
     print(f"{'='*60}")
@@ -267,6 +273,13 @@ def report():
     for rating, store, isbn, title in rows:
         print(f"{rating:>5.1f}  {store:<8}  {isbn:<15}  {title}")
     print(f"{'='*60}\n")
+
+    # 이메일 발송
+    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    lines = [f"[{now}] 현재 평점 {threshold} 미만 도서 ({len(rows)}건)\n"]
+    for rating, store, isbn, title in rows:
+        lines.append(f"{rating:.1f}  {store:<8}  {isbn}  {title}")
+    send_email(config, ["\n".join(lines)])
 
 
 def run():
