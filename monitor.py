@@ -223,6 +223,52 @@ def send_email(config: dict, messages: list):
 
 
 # ─── 메인 ─────────────────────────────────────────────────────
+def clean_title(title: str, isbn: str) -> str:
+    """도서명에서 불필요한 접미사 제거"""
+    if not title or title == isbn:
+        return isbn
+    # " | ..." 이후 제거 (알라딘: "제목 | 시리즈 | 저자")
+    title = title.split(" | ")[0].strip()
+    # " - 교보문고" 등 제거
+    for suffix in [" - 교보문고", " - 예스24", " - 알라딘"]:
+        if title.endswith(suffix):
+            title = title[:-len(suffix)].strip()
+    return title
+
+
+def report():
+    """state.json 기반으로 현재 9.5 아래인 도서 목록 출력"""
+    config    = load_config()
+    threshold = config["threshold"]
+    state     = load_state()
+    cache     = load_cache()
+    stores    = config.get("stores", ["aladin", "yes24", "kyobo"])
+
+    rows = []
+    for isbn, isbn_state in state.items():
+        for store in stores:
+            rating = isbn_state.get(store)
+            if rating is not None and rating < threshold:
+                title_key = f"_title_{isbn}"
+                raw_title = cache.get(title_key) or isbn
+                title = clean_title(raw_title, isbn)
+                rows.append((rating, store, isbn, title))
+
+    if not rows:
+        print(f"\n임계값({threshold}) 아래인 도서 없음.\n")
+        return
+
+    rows.sort(key=lambda x: x[0])  # 낮은 평점 순
+    print(f"\n{'='*60}")
+    print(f"현재 평점 {threshold} 미만 도서 ({len(rows)}건)")
+    print(f"{'='*60}")
+    print(f"{'평점':>5}  {'서점':<8}  {'ISBN':<15}  도서명")
+    print(f"{'-'*60}")
+    for rating, store, isbn, title in rows:
+        print(f"{rating:>5.1f}  {store:<8}  {isbn:<15}  {title}")
+    print(f"{'='*60}\n")
+
+
 def run():
     init_mode = "--init" in sys.argv
 
@@ -272,7 +318,7 @@ def run():
 
         for store in stores:
             rating, title = results.get(store, (None, ""))
-            book_name = title or shared_title or isbn
+            book_name = clean_title(title or shared_title, isbn)
 
             with state_lock:
                 prev = isbn_state.get(store)
@@ -342,4 +388,7 @@ def run():
 
 
 if __name__ == "__main__":
-    run()
+    if "--report" in sys.argv:
+        report()
+    else:
+        run()
