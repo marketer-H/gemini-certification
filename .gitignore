@@ -1,0 +1,7 @@
+venv/
+state.json
+isbn_cache.json
+*.log
+*.bak
+__pycache__/
+.env
