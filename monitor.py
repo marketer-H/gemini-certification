@@ -211,9 +211,9 @@ def send_email(config: dict, messages: list):
         msg = EmailMessage()
         msg["From"] = ec["username"]
         msg["To"] = ec["to"]
-        is_report = len(messages) == 1 and messages[0].startswith("[") and "미만 도서" in messages[0]
+        is_report = len(messages) == 1 and "미만 도서" in messages[0]
         if is_report:
-            msg["Subject"] = f"[도서 평점 리포트] 평점 {config.get('threshold', 9.5)} 미만 도서 현황"
+            msg["Subject"] = "[도서 평점 리포트] 현재 평점 미만 도서 현황"
         else:
             msg["Subject"] = f"[도서 평점 알림] {len(messages)}건 평점 하락 감지"
         msg.set_content(body, charset="utf-8")
@@ -279,7 +279,7 @@ def report():
     lines = [f"[{now}] 현재 평점 {threshold} 미만 도서 ({len(rows)}건)\n"]
     for rating, store, isbn, title in rows:
         lines.append(f"{rating:.1f}  {store:<8}  {isbn}  {title}")
-    send_email(config, ["\n".join(lines)])
+    send_email(config.get("notification", {}), ["\n".join(lines)])
 
 
 def run():
