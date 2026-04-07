@@ -207,8 +207,14 @@ def send_slack(webhook_url: str, messages: list):
 
 
 def send_email(config: dict, messages: list):
+    import os
     ec = config.get("email", {})
     if not ec.get("enabled") or not ec.get("username"):
+        return
+    # 비밀번호: config > 환경변수 SMTP_PASSWORD 순으로 확인
+    password = ec.get("password") or os.environ.get("SMTP_PASSWORD", "")
+    if not password:
+        print("[이메일 알림 실패] 비밀번호 없음. config.json 또는 SMTP_PASSWORD 환경변수를 설정하세요.")
         return
     try:
         body = "\n\n".join(messages)
@@ -219,7 +225,7 @@ def send_email(config: dict, messages: list):
         msg.attach(MIMEText(body, "plain", "utf-8"))
         with smtplib.SMTP(ec["smtp_server"], ec["smtp_port"]) as server:
             server.starttls()
-            server.login(ec["username"], ec["password"])
+            server.login(ec["username"], password)
             server.send_message(msg)
         print("[이메일 알림 발송 완료]")
     except Exception as e:
