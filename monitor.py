@@ -403,16 +403,37 @@ def run():
     print(f"\n{'='*60}")
     if init_mode:
         print("초기화 완료. 이제 'python3 monitor.py' 로 모니터링을 시작하세요.")
-    elif alerts:
-        print(f"알림 {len(alerts)}건 발생:\n")
-        for msg in alerts:
-            print(msg)
-            print()
-        notif = config.get("notification", {})
-        send_slack(notif.get("slack_webhook", ""), alerts)
-        send_email(notif, alerts)
     else:
-        print("임계값 아래의 신규 평점 하락 없음.")
+        # 전체 임계값 미만 도서 목록 수집
+        below = []
+        for isbn, isbn_state in state.items():
+            for store in stores:
+                r = isbn_state.get(store)
+                if r is not None and r < threshold:
+                    title_key = f"_title_{isbn}"
+                    raw_title = cache.get(title_key) or isbn
+                    title = clean_title(raw_title, isbn)
+                    below.append((r, store, isbn, title))
+        below.sort(key=lambda x: x[0])
+
+        if below:
+            print(f"현재 평점 {threshold} 미만 도서 ({len(below)}건):\n")
+            for r, store, isbn, title in below:
+                print(f"  {r:.1f}  {store:<8}  {isbn}  {title}")
+        else:
+            print(f"현재 평점 {threshold} 미만 도서 없음.")
+
+        # 이메일 발송
+        notif = config.get("notification", {})
+        now = datetime.now().strftime("%Y-%m-%d %H:%M")
+        if below:
+            lines = [f"[{now}] 현재 평점 {threshold} 미만 도서 ({len(below)}건)\n"]
+            for r, store, isbn, title in below:
+                lines.append(f"{r:.1f}  {store:<8}  {isbn}  {title}")
+            send_slack(notif.get("slack_webhook", ""), ["\n".join(lines)])
+            send_email(notif, ["\n".join(lines)])
+        else:
+            print("이메일 발송 없음 (미만 도서 없음).")
     print(f"{'='*60}\n")
 
 
