@@ -335,6 +335,12 @@ def run():
                 shared_title = t
                 break
 
+        # 제목 캐시에 없으면 저장
+        title_key = f"_title_{isbn}"
+        with cache_lock:
+            if not cache.get(title_key) and shared_title:
+                cache[title_key] = shared_title
+
         isbn_alerts = []
         with state_lock:
             isbn_state = state.setdefault(isbn, {})
