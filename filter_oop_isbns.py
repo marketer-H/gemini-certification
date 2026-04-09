@@ -28,7 +28,7 @@ print_lock = threading.Lock()
 
 
 def is_oop(isbn: str) -> tuple:
-    """알라딘에서 절판 여부 확인. (isbn, 절판여부, 제목) 반환"""
+    """알라딘에서 판매 여부 확인. (isbn, 판매불가여부, 제목) 반환"""
     url = f"https://www.aladin.co.kr/shop/wproduct.aspx?ISBN={isbn}"
     try:
         r = requests.get(url, headers=HTML_HEADERS, timeout=15)
@@ -38,8 +38,9 @@ def is_oop(isbn: str) -> tuple:
         t = re.search(r'<meta property="og:title" content="([^"]+)"', text)
         title = t.group(1).split(" | ")[0].strip() if t else isbn
 
-        oop = bool(re.search(r'절판|품절|판매불가|이 책은 더 이상', text))
-        return isbn, oop, title
+        # 구매 버튼이 있으면 판매중
+        on_sale = bool(re.search(r'장바구니 담기|바로구매|btn_buy', text))
+        return isbn, not on_sale, title
     except Exception:
         return isbn, False, ""
 
@@ -57,7 +58,7 @@ def main():
             isbn, oop, title = f.result()
             results[isbn] = (oop, title)
             done[0] += 1
-            status = "절판" if oop else "정상"
+            status = "판매불가" if oop else "판매중"
             with print_lock:
                 print(f"[{done[0]}/{len(isbns)}] {isbn}  {status}  {title}")
 
@@ -65,14 +66,14 @@ def main():
     keep   = [isbn for isbn in isbns if not results[isbn][0]]
 
     print(f"\n{'='*50}")
-    print(f"절판 도서 ({len(remove)}건):")
+    print(f"판매불가 도서 ({len(remove)}건):")
     for isbn, title in remove:
         print(f"  {isbn}  {title}")
     print(f"\n유지: {len(keep)}건 / 삭제: {len(remove)}건")
     print(f"{'='*50}")
 
     if not remove:
-        print("절판 도서 없음.")
+        print("판매불가 도서 없음.")
         return
 
     confirm = input("\nisbns.txt에서 삭제할까요? (y/n): ").strip().lower()
