@@ -404,9 +404,12 @@ def run():
     if init_mode:
         print("초기화 완료. 이제 'python3 monitor.py' 로 모니터링을 시작하세요.")
     else:
-        # 전체 임계값 미만 도서 목록 수집
+        # 전체 임계값 미만 도서 목록 수집 (현재 isbns.txt에 있는 것만)
+        isbn_set = set(isbns)
         below = []
         for isbn, isbn_state in state.items():
+            if isbn not in isbn_set:
+                continue
             for store in stores:
                 r = isbn_state.get(store)
                 if r is not None and r < threshold:
