@@ -38,9 +38,9 @@ def is_oop(isbn: str) -> tuple:
         t = re.search(r'<meta property="og:title" content="([^"]+)"', text)
         title = t.group(1).split(" | ")[0].strip() if t else isbn
 
-        # 구매 버튼이 있으면 판매중
-        on_sale = bool(re.search(r'장바구니 담기|바로구매|btn_buy', text))
-        return isbn, not on_sale, title
+        # 구판절판 텍스트가 있으면 판매불가
+        oop = bool(re.search(r'구판절판', text))
+        return isbn, oop, title
     except Exception:
         return isbn, False, ""
 
