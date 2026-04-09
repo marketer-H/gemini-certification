@@ -416,12 +416,17 @@ def run():
                     title_key = f"_title_{isbn}"
                     raw_title = cache.get(title_key) or isbn
                     title = clean_title(raw_title, isbn)
-                    below.append((r, store, isbn, title))
+                    store_url = {
+                        "aladin": f"https://www.aladin.co.kr/shop/wproduct.aspx?ISBN={isbn}",
+                        "yes24":  f"https://www.yes24.com/Product/Search?query={isbn}&domain=BOOK",
+                        "kyobo":  f"https://product.kyobobook.co.kr/detail/{cache.get(isbn, isbn)}",
+                    }.get(store, "")
+                    below.append((r, store, isbn, title, store_url))
         below.sort(key=lambda x: x[0])
 
         if below:
             print(f"현재 평점 {threshold} 미만 도서 ({len(below)}건):\n")
-            for r, store, isbn, title in below:
+            for r, store, isbn, title, url in below:
                 print(f"  {r:.1f}  {store:<8}  {isbn}  {title}")
         else:
             print(f"현재 평점 {threshold} 미만 도서 없음.")
@@ -431,10 +436,10 @@ def run():
         now = datetime.now().strftime("%Y-%m-%d %H:%M")
         if below:
             lines = [f"[{now}] 현재 평점 {threshold} 미만 도서 ({len(below)}건)\n"]
-            for r, store, isbn, title in below:
-                lines.append(f"{r:.1f}  {store:<8}  {isbn}  {title}")
-            send_slack(notif.get("slack_webhook", ""), ["\n".join(lines)])
-            send_email(notif, ["\n".join(lines)])
+            for r, store, isbn, title, url in below:
+                lines.append(f"{r:.1f}  {store:<8}  {title}\n{url}")
+            send_slack(notif.get("slack_webhook", ""), ["\n\n".join(lines)])
+            send_email(notif, ["\n\n".join(lines)])
         else:
             print("이메일 발송 없음 (미만 도서 없음).")
     print(f"{'='*60}\n")
