@@ -12,6 +12,10 @@ import smtplib
 import threading
 import warnings
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.base import MIMEBase
+from email import encoders
 from pathlib import Path
 from datetime import datetime
 
@@ -196,36 +200,57 @@ def send_slack(webhook_url: str, messages: list):
         print(f"[Slack 알림 실패] {e}")
 
 
-def send_email(config: dict, messages: list):
-    import base64
+def send_email(config: dict, subject: str, text_body: str,
+               html_body: str = None, attachment_path: str = None):
+    import base64 as b64
     ec = config.get("email", {})
     if not ec.get("enabled") or not ec.get("username"):
         return
     password = ec.get("password") or os.environ.get("SMTP_PASSWORD", "")
     if not password:
-        print("[이메일 알림 실패] 비밀번호 없음. config.json 또는 SMTP_PASSWORD 환경변수를 설정하세요.")
+        print("[이메일 알림 실패] 비밀번호 없음.")
         return
     try:
-        body = "\n\n".join(messages).replace("\xa0", " ")
-        is_report = len(messages) == 1 and "미만 도서" in messages[0]
-        subject = "[도서 평점 리포트] 현재 평점 미만 도서 현황" if is_report \
-                  else f"[도서 평점 알림] {len(messages)}건 평점 하락 감지"
+        text_body = text_body.replace("\xa0", " ")
+        subject_b64 = "=?utf-8?b?" + b64.b64encode(subject.encode("utf-8")).decode("ascii") + "?="
 
-        # Subject, Body 모두 base64 인코딩 → 순수 ASCII만 전송
-        subject_b64 = "=?utf-8?b?" + base64.b64encode(subject.encode("utf-8")).decode("ascii") + "?="
-        body_b64    = base64.b64encode(body.encode("utf-8")).decode("ascii")
+        if attachment_path or html_body:
+            outer = MIMEMultipart("mixed")
+            outer["From"] = ec["username"]
+            outer["To"] = ec["to"]
+            outer["Subject"] = subject_b64
 
-        # RFC 2822 raw 메시지 직접 구성 (비ASCII 문자 없음)
-        raw = "\r\n".join([
-            f"From: {ec['username']}",
-            f"To: {ec['to']}",
-            f"Subject: {subject_b64}",
-            "MIME-Version: 1.0",
-            'Content-Type: text/plain; charset="utf-8"',
-            "Content-Transfer-Encoding: base64",
-            "",
-            body_b64,
-        ])
+            alt = MIMEMultipart("alternative")
+            alt.attach(MIMEText(text_body, "plain", "utf-8"))
+            if html_body:
+                alt.attach(MIMEText(html_body, "html", "utf-8"))
+            outer.attach(alt)
+
+            if attachment_path:
+                with open(attachment_path, "rb") as f:
+                    part = MIMEBase("application", "octet-stream")
+                    part.set_payload(f.read())
+                encoders.encode_base64(part)
+                fname = Path(attachment_path).name
+                fname_b64 = b64.b64encode(fname.encode("utf-8")).decode("ascii")
+                part.add_header("Content-Disposition",
+                                f'attachment; filename="=?utf-8?b?{fname_b64}?="')
+                outer.attach(part)
+
+            raw = outer.as_bytes()
+        else:
+            # 첨부/HTML 없을 때 기존 방식 유지
+            body_b64 = b64.b64encode(text_body.encode("utf-8")).decode("ascii")
+            raw = "\r\n".join([
+                f"From: {ec['username']}",
+                f"To: {ec['to']}",
+                f"Subject: {subject_b64}",
+                "MIME-Version: 1.0",
+                'Content-Type: text/plain; charset="utf-8"',
+                "Content-Transfer-Encoding: base64",
+                "",
+                body_b64,
+            ]).encode()
 
         with smtplib.SMTP(ec["smtp_server"], ec["smtp_port"]) as server:
             server.starttls()
@@ -234,6 +259,152 @@ def send_email(config: dict, messages: list):
         print("[이메일 알림 발송 완료]")
     except Exception as e:
         print(f"[이메일 알림 실패] {e}")
+
+
+# ─── AI 권고 / HTML / Excel ───────────────────────────────────
+
+def generate_ai_recommendations(below: list, api_key: str) -> dict:
+    """Claude API로 도서별 대응 권고 생성. {'isbn_store': '권고문'} 반환"""
+    if not api_key or not below:
+        return {}
+    try:
+        import anthropic
+        client = anthropic.Anthropic(api_key=api_key)
+        book_list = "\n".join(
+            f"- {title} (ISBN: {isbn}, 서점: {store}, 평점: {r:.1f})"
+            for r, store, isbn, title, url in below
+        )
+        prompt = (
+            "다음은 현재 평점이 낮은 도서 목록입니다. "
+            "출판사 마케터 관점에서 각 도서의 평점 개선을 위한 구체적인 대응 방안을 1~2문장으로 작성해주세요.\n\n"
+            f"{book_list}\n\n"
+            "응답은 반드시 아래 JSON 형식으로만 작성하세요 (설명 없이):\n"
+            '{"ISBN_서점": "대응 방안", ...}\n'
+            '예: {"9791163030034_aladin": "독자 리뷰 이벤트 및 SNS 홍보 강화 검토"}'
+        )
+        msg = client.messages.create(
+            model="claude-opus-4-6",
+            max_tokens=3000,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        text = msg.content[0].text
+        m = re.search(r'\{.*\}', text, re.DOTALL)
+        return json.loads(m.group()) if m else {}
+    except Exception as e:
+        print(f"[AI 권고 생성 실패] {e}")
+        return {}
+
+
+def build_html_email(below: list, recs: dict, threshold: float, now: str) -> str:
+    def row_class(r):
+        return "critical" if r < 8.5 else "warning"
+
+    rows_html = ""
+    for r, store, isbn, title, url in below:
+        rec = recs.get(f"{isbn}_{store}", "")
+        cls = row_class(r)
+        rows_html += (
+            f'<tr class="{cls}">'
+            f'<td class="rating">{r:.1f}</td>'
+            f'<td>{store}</td>'
+            f'<td><a href="{url}">{title}</a></td>'
+            f'<td class="rec">{rec}</td>'
+            f'</tr>\n'
+        )
+
+    return f"""<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8">
+<style>
+  body {{ font-family: Arial, sans-serif; font-size: 14px; color: #333; }}
+  h2 {{ color: #2c3e50; }}
+  table {{ border-collapse: collapse; width: 100%; margin-top: 16px; }}
+  th {{ background: #2c3e50; color: white; padding: 10px 12px; text-align: left; }}
+  td {{ padding: 8px 12px; border-bottom: 1px solid #ddd; vertical-align: top; }}
+  tr.critical td {{ background: #fdecea; }}
+  tr.warning td {{ background: #fff8e1; }}
+  .rating {{ font-weight: bold; font-size: 1.1em; }}
+  tr.critical .rating {{ color: #c0392b; }}
+  tr.warning .rating {{ color: #e67e22; }}
+  a {{ color: #2980b9; text-decoration: none; }}
+  a:hover {{ text-decoration: underline; }}
+  .rec {{ color: #555; font-style: italic; }}
+  .legend {{ margin-top: 12px; font-size: 12px; color: #777; }}
+</style>
+</head>
+<body>
+<h2>도서 평점 리포트</h2>
+<p>{now} &nbsp;|&nbsp; 평점 <strong>{threshold}</strong> 미만 도서 <strong>{len(below)}건</strong></p>
+<table>
+  <tr><th>평점</th><th>서점</th><th>도서명</th><th>AI 대응 권고</th></tr>
+  {rows_html}
+</table>
+<p class="legend">
+  <span style="background:#fdecea;padding:2px 8px;">■</span> 8.5 미만 (긴급) &nbsp;
+  <span style="background:#fff8e1;padding:2px 8px;">■</span> 8.5~{threshold} 미만 (주의)
+</p>
+</body>
+</html>"""
+
+
+def create_excel(below: list, recs: dict, threshold: float, now: str) -> str:
+    try:
+        import openpyxl
+        from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
+        from openpyxl.utils import get_column_letter
+    except ImportError:
+        print("[Excel 생성 실패] openpyxl 미설치. pip install openpyxl")
+        return ""
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "평점 리포트"
+
+    # 타이틀
+    ws.merge_cells("A1:E1")
+    ws["A1"] = f"도서 평점 리포트 — {now} | 임계값 {threshold} 미만 {len(below)}건"
+    ws["A1"].font = Font(bold=True, size=13)
+    ws["A1"].alignment = Alignment(horizontal="center")
+
+    # 헤더
+    headers = ["평점", "서점", "도서명", "링크", "AI 대응 권고"]
+    header_fill = PatternFill("solid", fgColor="2C3E50")
+    for col, h in enumerate(headers, 1):
+        cell = ws.cell(row=2, column=col, value=h)
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal="center")
+
+    # 데이터
+    critical_fill = PatternFill("solid", fgColor="FDECEA")
+    warning_fill  = PatternFill("solid", fgColor="FFF8E1")
+    thin = Border(bottom=Side(style="thin", color="DDDDDD"))
+
+    for row_i, (r, store, isbn, title, url) in enumerate(below, 3):
+        fill = critical_fill if r < 8.5 else warning_fill
+        rec  = recs.get(f"{isbn}_{store}", "")
+
+        cells = [r, store, title, url, rec]
+        for col, val in enumerate(cells, 1):
+            cell = ws.cell(row=row_i, column=col, value=val)
+            cell.fill = fill
+            cell.border = thin
+            cell.alignment = Alignment(wrap_text=True, vertical="top")
+        ws.cell(row=row_i, column=1).font = Font(
+            bold=True, color="C0392B" if r < 8.5 else "E67E22"
+        )
+        ws.cell(row=row_i, column=1).alignment = Alignment(horizontal="center", vertical="top")
+
+    # 열 너비
+    ws.column_dimensions["A"].width = 8
+    ws.column_dimensions["B"].width = 10
+    ws.column_dimensions["C"].width = 35
+    ws.column_dimensions["D"].width = 55
+    ws.column_dimensions["E"].width = 45
+
+    path = str(BASE_DIR / f"평점리포트_{datetime.now().strftime('%Y%m%d')}.xlsx")
+    wb.save(path)
+    return path
 
 
 # ─── 메인 ─────────────────────────────────────────────────────
@@ -285,11 +456,33 @@ def report():
     print(f"{'='*60}\n")
 
     # 이메일 발송
-    now = datetime.now().strftime("%Y-%m-%d %H:%M")
-    lines = [f"[{now}] 현재 평점 {threshold} 미만 도서 ({len(rows)}건)\n"]
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
+    below = []
     for rating, store, isbn, title in rows:
-        lines.append(f"{rating:.1f}  {store:<8}  {isbn}  {title}")
-    send_email(config.get("notification", {}), ["\n".join(lines)])
+        store_url = {
+            "aladin": f"https://www.aladin.co.kr/shop/wproduct.aspx?ISBN={isbn}",
+            "yes24":  f"https://www.yes24.com/Product/Search?query={isbn}&domain=BOOK",
+            "kyobo":  f"https://product.kyobobook.co.kr/detail/{cache.get(isbn, isbn)}",
+        }.get(store, "")
+        below.append((rating, store, isbn, title, store_url))
+
+    api_key = config.get("claude_api_key") or os.environ.get("ANTHROPIC_API_KEY", "")
+    print("\nAI 대응 권고 생성 중...")
+    recs = generate_ai_recommendations(below, api_key)
+
+    lines = [f"[{now_str}] 현재 평점 {threshold} 미만 도서 ({len(below)}건)\n"]
+    for r, store, isbn, title, url in below:
+        rec = recs.get(f"{isbn}_{store}", "")
+        lines.append(f"{r:.1f}  {store:<8}  {title}\n{url}" + (f"\n권고: {rec}" if rec else ""))
+    text_body = "\n\n".join(lines)
+
+    html_body  = build_html_email(below, recs, threshold, now_str)
+    excel_path = create_excel(below, recs, threshold, now_str)
+    subject    = f"[도서 평점 리포트] {now_str} | 평점 {threshold} 미만 {len(below)}건"
+    send_email(config.get("notification", {}), subject, text_body,
+               html_body=html_body, attachment_path=excel_path if excel_path else None)
+    if excel_path and Path(excel_path).exists():
+        Path(excel_path).unlink()
 
 
 def run():
@@ -433,13 +626,32 @@ def run():
 
         # 이메일 발송
         notif = config.get("notification", {})
-        now = datetime.now().strftime("%Y-%m-%d %H:%M")
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
         if below:
-            lines = [f"[{now}] 현재 평점 {threshold} 미만 도서 ({len(below)}건)\n"]
+            # AI 권고 생성
+            api_key = config.get("claude_api_key") or os.environ.get("ANTHROPIC_API_KEY", "")
+            print("\nAI 대응 권고 생성 중...")
+            recs = generate_ai_recommendations(below, api_key)
+
+            # 텍스트 본문
+            lines = [f"[{now_str}] 현재 평점 {threshold} 미만 도서 ({len(below)}건)\n"]
             for r, store, isbn, title, url in below:
-                lines.append(f"{r:.1f}  {store:<8}  {title}\n{url}")
-            send_slack(notif.get("slack_webhook", ""), ["\n\n".join(lines)])
-            send_email(notif, ["\n\n".join(lines)])
+                rec = recs.get(f"{isbn}_{store}", "")
+                lines.append(f"{r:.1f}  {store:<8}  {title}\n{url}" + (f"\n권고: {rec}" if rec else ""))
+            text_body = "\n\n".join(lines)
+
+            # HTML + Excel
+            html_body = build_html_email(below, recs, threshold, now_str)
+            excel_path = create_excel(below, recs, threshold, now_str)
+
+            subject = f"[도서 평점 리포트] {now_str} | 평점 {threshold} 미만 {len(below)}건"
+            send_slack(notif.get("slack_webhook", ""), [text_body])
+            send_email(notif, subject, text_body, html_body=html_body,
+                       attachment_path=excel_path if excel_path else None)
+
+            # 임시 Excel 파일 삭제
+            if excel_path and Path(excel_path).exists():
+                Path(excel_path).unlink()
         else:
             print("이메일 발송 없음 (미만 도서 없음).")
     print(f"{'='*60}\n")
