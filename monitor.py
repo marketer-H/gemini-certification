@@ -437,6 +437,121 @@ def create_excel(below: list, recs: dict, threshold: float, now: str) -> str:
     return path
 
 
+def save_dashboard(below: list, recs: dict, threshold: float, now: str):
+    """대시보드 HTML 파일 저장"""
+    critical = [(r, s, isbn, t, u) for r, s, isbn, t, u in below if r < 8.5]
+    warning   = [(r, s, isbn, t, u) for r, s, isbn, t, u in below if 8.5 <= r < threshold]
+
+    def make_rows(items):
+        rows = ""
+        for r, store, isbn, title, url in items:
+            rec = recs.get(f"{isbn}_{store}", "—")
+            cls = "critical" if r < 8.5 else "warning"
+            rows += (
+                f'<tr class="{cls}">'
+                f'<td class="rating">{r:.1f}</td>'
+                f'<td><span class="badge {store}">{store}</span></td>'
+                f'<td><a href="{url}" target="_blank">{title}</a></td>'
+                f'<td class="rec">{rec}</td>'
+                f'</tr>\n'
+            )
+        return rows
+
+    html = f"""<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>도서 평점 대시보드</title>
+<style>
+  * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+  body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+         background: #f0f2f5; color: #333; padding: 24px; }}
+  h1 {{ font-size: 22px; font-weight: 700; color: #1a1a2e; margin-bottom: 4px; }}
+  .meta {{ font-size: 13px; color: #888; margin-bottom: 24px; }}
+
+  .cards {{ display: flex; gap: 16px; margin-bottom: 28px; flex-wrap: wrap; }}
+  .card {{ background: white; border-radius: 12px; padding: 20px 28px;
+           box-shadow: 0 1px 4px rgba(0,0,0,.08); min-width: 140px; }}
+  .card .num {{ font-size: 32px; font-weight: 700; }}
+  .card .label {{ font-size: 12px; color: #888; margin-top: 2px; }}
+  .card.red .num {{ color: #e74c3c; }}
+  .card.orange .num {{ color: #e67e22; }}
+  .card.blue .num {{ color: #3498db; }}
+
+  .section {{ background: white; border-radius: 12px; padding: 20px;
+              box-shadow: 0 1px 4px rgba(0,0,0,.08); margin-bottom: 20px; }}
+  .section h2 {{ font-size: 15px; font-weight: 600; margin-bottom: 14px;
+                 padding-bottom: 10px; border-bottom: 1px solid #eee; }}
+  .section h2 span {{ font-size: 12px; font-weight: 400; color: #999; margin-left: 8px; }}
+
+  table {{ width: 100%; border-collapse: collapse; font-size: 13px; }}
+  th {{ text-align: left; padding: 8px 12px; background: #f8f9fa;
+        color: #555; font-weight: 600; border-bottom: 2px solid #eee; }}
+  td {{ padding: 10px 12px; border-bottom: 1px solid #f0f0f0; vertical-align: top; }}
+  tr:last-child td {{ border-bottom: none; }}
+  tr.critical td {{ background: #fff5f5; }}
+  tr.warning td {{ background: #fffbf0; }}
+  tr:hover td {{ filter: brightness(0.97); }}
+
+  .rating {{ font-weight: 700; font-size: 15px; width: 50px; }}
+  tr.critical .rating {{ color: #e74c3c; }}
+  tr.warning .rating {{ color: #e67e22; }}
+
+  .badge {{ display: inline-block; padding: 2px 8px; border-radius: 20px;
+            font-size: 11px; font-weight: 600; }}
+  .badge.aladin {{ background: #e8f4fd; color: #2980b9; }}
+  .badge.yes24  {{ background: #fef9e7; color: #d68910; }}
+  .badge.kyobo  {{ background: #eafaf1; color: #27ae60; }}
+
+  a {{ color: #2980b9; text-decoration: none; }}
+  a:hover {{ text-decoration: underline; }}
+  .rec {{ color: #555; line-height: 1.5; max-width: 420px; }}
+
+  input[type=text] {{ width: 100%; padding: 8px 12px; border: 1px solid #ddd;
+                      border-radius: 8px; font-size: 13px; margin-bottom: 14px; }}
+</style>
+</head>
+<body>
+<h1>도서 평점 대시보드</h1>
+<p class="meta">마지막 업데이트: {now} &nbsp;|&nbsp; 임계값: {threshold} 미만</p>
+
+<div class="cards">
+  <div class="card blue"><div class="num">{len(below)}</div><div class="label">전체 미만 도서</div></div>
+  <div class="card red"><div class="num">{len(critical)}</div><div class="label">긴급 (8.5 미만)</div></div>
+  <div class="card orange"><div class="num">{len(warning)}</div><div class="label">주의 (8.5~{threshold})</div></div>
+</div>
+
+<input type="text" id="search" placeholder="도서명 검색..." onkeyup="filterTable()">
+
+<div class="section">
+  <h2>긴급 도서 <span>평점 8.5 미만</span></h2>
+  <table id="mainTable">
+    <thead><tr><th>평점</th><th>서점</th><th>도서명</th><th>AI 대응 권고</th></tr></thead>
+    <tbody>
+      {make_rows(critical)}
+      {make_rows(warning)}
+    </tbody>
+  </table>
+</div>
+
+<script>
+function filterTable() {{
+  const q = document.getElementById('search').value.toLowerCase();
+  document.querySelectorAll('#mainTable tbody tr').forEach(tr => {{
+    tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none';
+  }});
+}}
+</script>
+</body>
+</html>"""
+
+    path = BASE_DIR / "dashboard.html"
+    path.write_text(html, encoding="utf-8")
+    print(f"[대시보드 저장] {path}")
+    return str(path)
+
+
 # ─── 메인 ─────────────────────────────────────────────────────
 def clean_title(title: str, isbn: str) -> str:
     """도서명에서 불필요한 접미사 제거"""
@@ -701,6 +816,9 @@ def run():
             # 임시 Excel 파일 삭제
             if excel_path and Path(excel_path).exists():
                 Path(excel_path).unlink()
+
+            # 대시보드 HTML 저장
+            save_dashboard(below, recs, threshold, now_str)
         else:
             print("이메일 발송 없음 (미만 도서 없음).")
     print(f"{'='*60}\n")
