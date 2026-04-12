@@ -287,9 +287,6 @@ def generate_ai_recommendations(below: list, contexts: dict = None, batch_size: 
             prev_r = ctx.get("prev_rating")
             review_count = ctx.get("review_count", 0)
 
-            other_stores = ", ".join(
-                f"{s}={v:.1f}" for s, v in all_ratings.items() if s != store and v is not None
-            )
             trend = ""
             if prev_r is not None and prev_r != r:
                 trend = f"이전 {prev_r:.1f}→현재 {r:.1f} ({'하락' if r < prev_r else '상승'})"
@@ -297,8 +294,6 @@ def generate_ai_recommendations(below: list, contexts: dict = None, batch_size: 
                 trend = f"변동 없음 ({r:.1f})"
 
             line = f"- {title} (ISBN: {isbn}, 서점: {store}, 현재 평점: {r:.1f})"
-            if other_stores:
-                line += f"\n  다른 서점 평점: {other_stores}"
             if trend:
                 line += f"\n  평점 변동: {trend}"
             if review_count:
