@@ -454,7 +454,29 @@ def create_excel(below: list, recs: dict, threshold: float, now: str) -> str:
     return path
 
 
-def save_dashboard(below: list, recs: dict, threshold: float, now: str, cache: dict = None):
+def push_dashboard():
+    """docs/index.html을 GitHub에 push"""
+    import subprocess
+    try:
+        subprocess.run(["git", "add", "docs/index.html"], cwd=BASE_DIR, check=True)
+        result = subprocess.run(
+            ["git", "diff", "--cached", "--quiet"],
+            cwd=BASE_DIR
+        )
+        if result.returncode != 0:  # 변경사항 있을 때만 commit
+            subprocess.run(
+                ["git", "commit", "-m", f"Update dashboard {datetime.now().strftime('%Y-%m-%d %H:%M')}"],
+                cwd=BASE_DIR, check=True
+            )
+            subprocess.run(["git", "push", "origin", "main"], cwd=BASE_DIR, check=True)
+            print("[대시보드 push 완료]")
+        else:
+            print("[대시보드] 변경사항 없음, push 생략")
+    except Exception as e:
+        print(f"[대시보드 push 실패] {e}")
+
+
+def save_dashboard(below: list, recs: dict, threshold: float, now: str, cache: dict = None, password: str = ""):
     """대시보드 HTML 파일 저장"""
     cache = cache or {}
 
@@ -508,6 +530,59 @@ def save_dashboard(below: list, recs: dict, threshold: float, now: str, cache: d
     for item in below:
         groups[series_group(item[3])].append(item)
 
+    auth_script = ""
+    auth_style = ""
+    if password:
+        auth_style = """
+  #auth-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: #f0f2f5; display: flex; align-items: center;
+    justify-content: center; z-index: 9999;
+  }
+  .auth-box {
+    background: white; border-radius: 16px; padding: 40px 48px;
+    box-shadow: 0 4px 24px rgba(0,0,0,.12); text-align: center; min-width: 300px;
+  }
+  .auth-box h2 { font-size: 20px; margin-bottom: 24px; color: #1a1a2e; }
+  .auth-box input {
+    width: 100%; padding: 10px 14px; border: 1px solid #ddd;
+    border-radius: 8px; font-size: 14px; margin-bottom: 12px;
+    text-align: center; letter-spacing: 2px;
+  }
+  .auth-box button {
+    width: 100%; padding: 10px; background: #1a1a2e; color: white;
+    border: none; border-radius: 8px; font-size: 14px; cursor: pointer;
+  }
+  .auth-box button:hover { background: #2c2c54; }
+  #pw-err { color: #e74c3c; font-size: 12px; margin-top: 8px; min-height: 16px; }
+"""
+        auth_script = f"""
+<div id="auth-overlay">
+  <div class="auth-box">
+    <h2>도서 평점 대시보드</h2>
+    <input type="password" id="pw-input" placeholder="비밀번호를 입력하세요"
+           onkeydown="if(event.key==='Enter')checkPw()">
+    <button onclick="checkPw()">확인</button>
+    <p id="pw-err"></p>
+  </div>
+</div>
+<script>
+(function() {{
+  if (sessionStorage.getItem('dashboard_auth') === '1') {{
+    document.getElementById('auth-overlay').style.display = 'none';
+  }}
+}})();
+function checkPw() {{
+  if (document.getElementById('pw-input').value === '{password}') {{
+    sessionStorage.setItem('dashboard_auth', '1');
+    document.getElementById('auth-overlay').style.display = 'none';
+  }} else {{
+    document.getElementById('pw-err').textContent = '비밀번호가 틀렸습니다.';
+  }}
+}}
+</script>
+"""
+
     html = f"""<!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -515,6 +590,7 @@ def save_dashboard(below: list, recs: dict, threshold: float, now: str, cache: d
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>도서 평점 대시보드</title>
 <style>
+{auth_style}
   * {{ box-sizing: border-box; margin: 0; padding: 0; }}
   body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
          background: #f0f2f5; color: #333; padding: 24px; }}
@@ -576,6 +652,7 @@ def save_dashboard(below: list, recs: dict, threshold: float, now: str, cache: d
 </style>
 </head>
 <body>
+{auth_script}
 <h1>도서 평점 대시보드</h1>
 <p class="meta">마지막 업데이트: {now} &nbsp;|&nbsp; 임계값: {threshold} 미만</p>
 
@@ -625,7 +702,9 @@ function applyFilter() {{
 </body>
 </html>"""
 
-    path = BASE_DIR / "dashboard.html"
+    docs_dir = BASE_DIR / "docs"
+    docs_dir.mkdir(exist_ok=True)
+    path = docs_dir / "index.html"
     path.write_text(html, encoding="utf-8")
     print(f"[대시보드 저장] {path}")
     return str(path)
@@ -896,8 +975,10 @@ def run():
             if excel_path and Path(excel_path).exists():
                 Path(excel_path).unlink()
 
-            # 대시보드 HTML 저장
-            save_dashboard(below, recs, threshold, now_str, cache=cache)
+            # 대시보드 HTML 저장 및 GitHub push
+            pw = config.get("dashboard_password", "")
+            save_dashboard(below, recs, threshold, now_str, cache=cache, password=pw)
+            push_dashboard()
         else:
             print("이메일 발송 없음 (미만 도서 없음).")
     print(f"{'='*60}\n")

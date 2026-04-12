@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>도서 평점 대시보드</title>
+<style>
+
+  #auth-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: #f0f2f5; display: flex; align-items: center;
+    justify-content: center; z-index: 9999;
+  }
+  .auth-box {
+    background: white; border-radius: 16px; padding: 40px 48px;
+    box-shadow: 0 4px 24px rgba(0,0,0,.12); text-align: center; min-width: 300px;
+  }
+  .auth-box h2 { font-size: 20px; margin-bottom: 24px; color: #1a1a2e; }
+  .auth-box input {
+    width: 100%; padding: 10px 14px; border: 1px solid #ddd;
+    border-radius: 8px; font-size: 14px; margin-bottom: 12px;
+    text-align: center; letter-spacing: 2px;
+  }
+  .auth-box button {
+    width: 100%; padding: 10px; background: #1a1a2e; color: white;
+    border: none; border-radius: 8px; font-size: 14px; cursor: pointer;
+  }
+  .auth-box button:hover { background: #2c2c54; }
+  #pw-err { color: #e74c3c; font-size: 12px; margin-top: 8px; min-height: 16px; }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+         background: #f0f2f5; color: #333; padding: 24px; }
+  h1 { font-size: 22px; font-weight: 700; color: #1a1a2e; margin-bottom: 4px; }
+  .meta { font-size: 13px; color: #888; margin-bottom: 24px; }
+
+  .cards { display: flex; gap: 16px; margin-bottom: 28px; flex-wrap: wrap; }
+  .card { background: white; border-radius: 12px; padding: 20px 28px;
+           box-shadow: 0 1px 4px rgba(0,0,0,.08); min-width: 140px; }
+  .card .num { font-size: 32px; font-weight: 700; }
+  .card .label { font-size: 12px; color: #888; margin-top: 2px; }
+  .card.red .num { color: #e74c3c; }
+  .card.orange .num { color: #e67e22; }
+  .card.blue .num { color: #3498db; }
+
+  .section { background: white; border-radius: 12px; padding: 20px;
+              box-shadow: 0 1px 4px rgba(0,0,0,.08); margin-bottom: 20px; }
+  .section h2 { font-size: 15px; font-weight: 600; margin-bottom: 14px;
+                 padding-bottom: 10px; border-bottom: 1px solid #eee; }
+  .section h2 span { font-size: 12px; font-weight: 400; color: #999; margin-left: 8px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 8px 12px; background: #f8f9fa;
+        color: #555; font-weight: 600; border-bottom: 2px solid #eee; }
+  td { padding: 10px 12px; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  tr.critical td { background: #fff5f5; }
+  tr.warning td { background: #fffbf0; }
+  tr:hover td { filter: brightness(0.97); }
+
+  .rating { font-weight: 700; font-size: 15px; width: 50px; }
+  tr.critical .rating { color: #e74c3c; }
+  tr.warning .rating { color: #e67e22; }
+
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 20px;
+            font-size: 11px; font-weight: 600; }
+  .badge.aladin { background: #e8f4fd; color: #2980b9; }
+  .badge.yes24  { background: #fef9e7; color: #d68910; }
+  .badge.kyobo  { background: #eafaf1; color: #27ae60; }
+
+  a { color: #2980b9; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .rec { color: #555; line-height: 1.5; max-width: 380px; }
+  .review-count { text-align: center; color: #888; font-size: 12px; width: 60px; }
+
+  input[type=text] { width: 100%; padding: 8px 12px; border: 1px solid #ddd;
+                      border-radius: 8px; font-size: 13px; margin-bottom: 12px; }
+
+  .filters { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+  .filter-btn { padding: 5px 14px; border-radius: 20px; border: 1px solid #ddd;
+                 background: white; font-size: 12px; font-weight: 600; cursor: pointer;
+                 transition: all .15s; }
+  .filter-btn:hover { filter: brightness(0.95); }
+  .filter-btn.active { color: white; border-color: transparent; }
+  .filter-btn[data-store="all"].active { background: #555; }
+  .filter-btn[data-store="aladin"].active { background: #2980b9; }
+  .filter-btn[data-store="yes24"].active  { background: #d68910; }
+  .filter-btn[data-store="kyobo"].active  { background: #27ae60; }
+</style>
+</head>
+<body>
+
+<div id="auth-overlay">
+  <div class="auth-box">
+    <h2>도서 평점 대시보드</h2>
+    <input type="password" id="pw-input" placeholder="비밀번호를 입력하세요"
+           onkeydown="if(event.key==='Enter')checkPw()">
+    <button onclick="checkPw()">확인</button>
+    <p id="pw-err"></p>
+  </div>
+</div>
+<script>
+(function() {
+  if (sessionStorage.getItem('dashboard_auth') === '1') {
+    document.getElementById('auth-overlay').style.display = 'none';
+  }
+})();
+function checkPw() {
+  if (document.getElementById('pw-input').value === 'easyspub2024') {
+    sessionStorage.setItem('dashboard_auth', '1');
+    document.getElementById('auth-overlay').style.display = 'none';
+  } else {
+    document.getElementById('pw-err').textContent = '비밀번호가 틀렸습니다.';
+  }
+}
+</script>
+
+<h1>도서 평점 대시보드</h1>
+<p class="meta">마지막 업데이트: 2026-04-12 12:00 &nbsp;|&nbsp; 임계값: 9.0 미만</p>
+
+<div class="cards">
+  <div class="card blue"><div class="num">2</div><div class="label">전체 미만 도서</div></div>
+  <div class="card red"><div class="num">1</div><div class="label">긴급 (8.5 미만)</div></div>
+  <div class="card orange"><div class="num">1</div><div class="label">주의 (8.5~9.0)</div></div>
+</div>
+
+<input type="text" id="search" placeholder="도서명 검색..." onkeyup="applyFilter()">
+
+<div class="filters">
+  <button class="filter-btn active" data-store="all" onclick="setStore('all')">전체</button>
+  <button class="filter-btn" data-store="aladin" onclick="setStore('aladin')">알라딘</button>
+  <button class="filter-btn" data-store="yes24"  onclick="setStore('yes24')">예스24</button>
+  <button class="filter-btn" data-store="kyobo"  onclick="setStore('kyobo')">교보문고</button>
+</div>
+
+<p style="font-size:12px;color:#aaa;margin-bottom:16px;">총 <span id="count">2</span>건 표시 중</p>
+
+<div class="section"><h2>된다! 시리즈 <span>1건</span></h2><table class="mainTable"><thead><tr><th>평점</th><th>서점</th><th>도서명</th><th style="text-align:center">리뷰 수</th><th>AI 대응 권고</th></tr></thead><tbody><tr class="critical" data-store="aladin"><td class="rating">8.2</td><td><span class="badge aladin">aladin</span></td><td><a href="https://www.aladin.co.kr/shop/wproduct.aspx?ISBN=9791163030034" target="_blank">된다! 테스트 도서 A</a></td><td class="review-count">—</td><td class="rec">—</td></tr>
+</tbody></table></div>
+<div class="section"><h2>Do it! 시리즈 <span>1건</span></h2><table class="mainTable"><thead><tr><th>평점</th><th>서점</th><th>도서명</th><th style="text-align:center">리뷰 수</th><th>AI 대응 권고</th></tr></thead><tbody><tr class="warning" data-store="yes24"><td class="rating">8.7</td><td><span class="badge yes24">yes24</span></td><td><a href="https://www.yes24.com/Product/Search?query=9791163030195" target="_blank">Do it! 테스트 도서 B</a></td><td class="review-count">—</td><td class="rec">—</td></tr>
+</tbody></table></div>
+<div class="section"><h2>기타 <span>0건</span></h2><p style='color:#aaa;font-size:13px;padding:8px 0'>해당 없음</p></div>
+
+<script>
+let activeStore = 'all';
+
+function setStore(store) {
+  activeStore = store;
+  document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.store === store);
+  });
+  applyFilter();
+}
+
+function applyFilter() {
+  const q = document.getElementById('search').value.toLowerCase();
+  let visible = 0;
+  document.querySelectorAll('.mainTable tbody tr').forEach(tr => {
+    const storeMatch = activeStore === 'all' || tr.dataset.store === activeStore;
+    const textMatch  = tr.textContent.toLowerCase().includes(q);
+    const show = storeMatch && textMatch;
+    tr.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+  document.getElementById('count').textContent = visible;
+}
+</script>
+</body>
+</html>
