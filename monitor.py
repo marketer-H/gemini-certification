@@ -437,25 +437,59 @@ def create_excel(below: list, recs: dict, threshold: float, now: str) -> str:
     return path
 
 
-def save_dashboard(below: list, recs: dict, threshold: float, now: str):
+def save_dashboard(below: list, recs: dict, threshold: float, now: str, cache: dict = None):
     """대시보드 HTML 파일 저장"""
-    critical = [(r, s, isbn, t, u) for r, s, isbn, t, u in below if r < 8.5]
-    warning   = [(r, s, isbn, t, u) for r, s, isbn, t, u in below if 8.5 <= r < threshold]
+    cache = cache or {}
+
+    def series_group(title):
+        if title.startswith("된다!"):
+            return "된다! 시리즈"
+        elif title.startswith("Do it!"):
+            return "Do it! 시리즈"
+        else:
+            return "기타"
 
     def make_rows(items):
         rows = ""
         for r, store, isbn, title, url in items:
             rec = recs.get(f"{isbn}_{store}", "—")
+            review_count = cache.get(f"_reviews_{isbn}", "")
             cls = "critical" if r < 8.5 else "warning"
             rows += (
                 f'<tr class="{cls}" data-store="{store}">'
                 f'<td class="rating">{r:.1f}</td>'
                 f'<td><span class="badge {store}">{store}</span></td>'
                 f'<td><a href="{url}" target="_blank">{title}</a></td>'
+                f'<td class="review-count">{review_count if review_count else "—"}</td>'
                 f'<td class="rec">{rec}</td>'
                 f'</tr>\n'
             )
         return rows
+
+    def _build_sections(grps, row_fn):
+        html_parts = []
+        for group, items in grps.items():
+            if items:
+                table = (
+                    '<table class="mainTable">'
+                    '<thead><tr><th>평점</th><th>서점</th><th>도서명</th>'
+                    '<th style="text-align:center">리뷰 수</th><th>AI 대응 권고</th></tr></thead>'
+                    f'<tbody>{row_fn(items)}</tbody></table>'
+                )
+            else:
+                table = "<p style='color:#aaa;font-size:13px;padding:8px 0'>해당 없음</p>"
+            html_parts.append(
+                f'<div class="section"><h2>{group} <span>{len(items)}건</span></h2>{table}</div>'
+            )
+        return "\n".join(html_parts)
+
+    critical_count = sum(1 for r, *_ in below if r < 8.5)
+    warning_count  = len(below) - critical_count
+
+    # 시리즈별 분류
+    groups = {"된다! 시리즈": [], "Do it! 시리즈": [], "기타": []}
+    for item in below:
+        groups[series_group(item[3])].append(item)
 
     html = f"""<!DOCTYPE html>
 <html lang="ko">
@@ -506,7 +540,8 @@ def save_dashboard(below: list, recs: dict, threshold: float, now: str):
 
   a {{ color: #2980b9; text-decoration: none; }}
   a:hover {{ text-decoration: underline; }}
-  .rec {{ color: #555; line-height: 1.5; max-width: 420px; }}
+  .rec {{ color: #555; line-height: 1.5; max-width: 380px; }}
+  .review-count {{ text-align: center; color: #888; font-size: 12px; width: 60px; }}
 
   input[type=text] {{ width: 100%; padding: 8px 12px; border: 1px solid #ddd;
                       border-radius: 8px; font-size: 13px; margin-bottom: 12px; }}
@@ -529,8 +564,8 @@ def save_dashboard(below: list, recs: dict, threshold: float, now: str):
 
 <div class="cards">
   <div class="card blue"><div class="num">{len(below)}</div><div class="label">전체 미만 도서</div></div>
-  <div class="card red"><div class="num">{len(critical)}</div><div class="label">긴급 (8.5 미만)</div></div>
-  <div class="card orange"><div class="num">{len(warning)}</div><div class="label">주의 (8.5~{threshold})</div></div>
+  <div class="card red"><div class="num">{critical_count}</div><div class="label">긴급 (8.5 미만)</div></div>
+  <div class="card orange"><div class="num">{warning_count}</div><div class="label">주의 (8.5~{threshold})</div></div>
 </div>
 
 <input type="text" id="search" placeholder="도서명 검색..." onkeyup="applyFilter()">
@@ -542,16 +577,9 @@ def save_dashboard(below: list, recs: dict, threshold: float, now: str):
   <button class="filter-btn" data-store="kyobo"  onclick="setStore('kyobo')">교보문고</button>
 </div>
 
-<div class="section">
-  <h2>평점 미만 도서 <span id="count">{len(below)}건</span></h2>
-  <table id="mainTable">
-    <thead><tr><th>평점</th><th>서점</th><th>도서명</th><th>AI 대응 권고</th></tr></thead>
-    <tbody>
-      {make_rows(critical)}
-      {make_rows(warning)}
-    </tbody>
-  </table>
-</div>
+<p style="font-size:12px;color:#aaa;margin-bottom:16px;">총 <span id="count">{len(below)}</span>건 표시 중</p>
+
+{_build_sections(groups, make_rows)}
 
 <script>
 let activeStore = 'all';
@@ -567,14 +595,14 @@ function setStore(store) {{
 function applyFilter() {{
   const q = document.getElementById('search').value.toLowerCase();
   let visible = 0;
-  document.querySelectorAll('#mainTable tbody tr').forEach(tr => {{
+  document.querySelectorAll('.mainTable tbody tr').forEach(tr => {{
     const storeMatch = activeStore === 'all' || tr.dataset.store === activeStore;
     const textMatch  = tr.textContent.toLowerCase().includes(q);
     const show = storeMatch && textMatch;
     tr.style.display = show ? '' : 'none';
     if (show) visible++;
   }});
-  document.getElementById('count').textContent = visible + '건';
+  document.getElementById('count').textContent = visible;
 }}
 </script>
 </body>
@@ -852,7 +880,7 @@ def run():
                 Path(excel_path).unlink()
 
             # 대시보드 HTML 저장
-            save_dashboard(below, recs, threshold, now_str)
+            save_dashboard(below, recs, threshold, now_str, cache=cache)
         else:
             print("이메일 발송 없음 (미만 도서 없음).")
     print(f"{'='*60}\n")
