@@ -263,33 +263,42 @@ def send_email(config: dict, subject: str, text_body: str,
 
 # ─── AI 권고 / HTML / Excel ───────────────────────────────────
 
-def generate_ai_recommendations(below: list, api_key: str) -> dict:
-    """Claude API로 도서별 대응 권고 생성. {'isbn_store': '권고문'} 반환"""
+def generate_ai_recommendations(below: list, api_key: str, batch_size: int = 15) -> dict:
+    """Claude API로 도서별 대응 권고 생성 (배치 처리). {'isbn_store': '권고문'} 반환"""
     if not api_key or not below:
         return {}
     try:
         import anthropic
         client = anthropic.Anthropic(api_key=api_key)
-        book_list = "\n".join(
-            f"- {title} (ISBN: {isbn}, 서점: {store}, 평점: {r:.1f})"
-            for r, store, isbn, title, url in below
-        )
-        prompt = (
-            "다음은 현재 평점이 낮은 도서 목록입니다. "
-            "출판사 마케터 관점에서 각 도서의 평점 개선을 위한 구체적인 대응 방안을 1~2문장으로 작성해주세요.\n\n"
-            f"{book_list}\n\n"
-            "응답은 반드시 아래 JSON 형식으로만 작성하세요 (설명 없이):\n"
-            '{"ISBN_서점": "대응 방안", ...}\n'
-            '예: {"9791163030034_aladin": "독자 리뷰 이벤트 및 SNS 홍보 강화 검토"}'
-        )
-        msg = client.messages.create(
-            model="claude-opus-4-6",
-            max_tokens=3000,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        text = msg.content[0].text
-        m = re.search(r'\{.*\}', text, re.DOTALL)
-        return json.loads(m.group()) if m else {}
+        all_recs = {}
+
+        for i in range(0, len(below), batch_size):
+            batch = below[i:i + batch_size]
+            book_list = "\n".join(
+                f"- {title} (ISBN: {isbn}, 서점: {store}, 평점: {r:.1f})"
+                for r, store, isbn, title, url in batch
+            )
+            prompt = (
+                "다음은 현재 평점이 낮은 도서 목록입니다. "
+                "출판사 마케터 관점에서 각 도서의 평점 개선을 위한 구체적인 대응 방안을 1~2문장으로 작성해주세요.\n\n"
+                f"{book_list}\n\n"
+                "응답은 반드시 아래 JSON 형식으로만 작성하세요 (설명 없이):\n"
+                '{"ISBN_서점": "대응 방안", ...}\n'
+                '예: {"9791163030034_aladin": "독자 리뷰 이벤트 및 SNS 홍보 강화 검토"}'
+            )
+            msg = client.messages.create(
+                model="claude-opus-4-6",
+                max_tokens=4000,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            text = msg.content[0].text
+            m = re.search(r'\{.*\}', text, re.DOTALL)
+            if m:
+                batch_recs = json.loads(m.group())
+                all_recs.update(batch_recs)
+            print(f"  배치 {i//batch_size + 1}/{(len(below)-1)//batch_size + 1} 완료 ({len(all_recs)}건)")
+
+        return all_recs
     except Exception as e:
         print(f"[AI 권고 생성 실패] {e}")
         return {}
