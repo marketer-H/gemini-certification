@@ -448,7 +448,7 @@ def save_dashboard(below: list, recs: dict, threshold: float, now: str):
             rec = recs.get(f"{isbn}_{store}", "—")
             cls = "critical" if r < 8.5 else "warning"
             rows += (
-                f'<tr class="{cls}">'
+                f'<tr class="{cls}" data-store="{store}">'
                 f'<td class="rating">{r:.1f}</td>'
                 f'<td><span class="badge {store}">{store}</span></td>'
                 f'<td><a href="{url}" target="_blank">{title}</a></td>'
@@ -509,7 +509,18 @@ def save_dashboard(below: list, recs: dict, threshold: float, now: str):
   .rec {{ color: #555; line-height: 1.5; max-width: 420px; }}
 
   input[type=text] {{ width: 100%; padding: 8px 12px; border: 1px solid #ddd;
-                      border-radius: 8px; font-size: 13px; margin-bottom: 14px; }}
+                      border-radius: 8px; font-size: 13px; margin-bottom: 12px; }}
+
+  .filters {{ display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }}
+  .filter-btn {{ padding: 5px 14px; border-radius: 20px; border: 1px solid #ddd;
+                 background: white; font-size: 12px; font-weight: 600; cursor: pointer;
+                 transition: all .15s; }}
+  .filter-btn:hover {{ filter: brightness(0.95); }}
+  .filter-btn.active {{ color: white; border-color: transparent; }}
+  .filter-btn[data-store="all"].active {{ background: #555; }}
+  .filter-btn[data-store="aladin"].active {{ background: #2980b9; }}
+  .filter-btn[data-store="yes24"].active  {{ background: #d68910; }}
+  .filter-btn[data-store="kyobo"].active  {{ background: #27ae60; }}
 </style>
 </head>
 <body>
@@ -522,10 +533,17 @@ def save_dashboard(below: list, recs: dict, threshold: float, now: str):
   <div class="card orange"><div class="num">{len(warning)}</div><div class="label">주의 (8.5~{threshold})</div></div>
 </div>
 
-<input type="text" id="search" placeholder="도서명 검색..." onkeyup="filterTable()">
+<input type="text" id="search" placeholder="도서명 검색..." onkeyup="applyFilter()">
+
+<div class="filters">
+  <button class="filter-btn active" data-store="all" onclick="setStore('all')">전체</button>
+  <button class="filter-btn" data-store="aladin" onclick="setStore('aladin')">알라딘</button>
+  <button class="filter-btn" data-store="yes24"  onclick="setStore('yes24')">예스24</button>
+  <button class="filter-btn" data-store="kyobo"  onclick="setStore('kyobo')">교보문고</button>
+</div>
 
 <div class="section">
-  <h2>긴급 도서 <span>평점 8.5 미만</span></h2>
+  <h2>평점 미만 도서 <span id="count">{len(below)}건</span></h2>
   <table id="mainTable">
     <thead><tr><th>평점</th><th>서점</th><th>도서명</th><th>AI 대응 권고</th></tr></thead>
     <tbody>
@@ -536,11 +554,27 @@ def save_dashboard(below: list, recs: dict, threshold: float, now: str):
 </div>
 
 <script>
-function filterTable() {{
-  const q = document.getElementById('search').value.toLowerCase();
-  document.querySelectorAll('#mainTable tbody tr').forEach(tr => {{
-    tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none';
+let activeStore = 'all';
+
+function setStore(store) {{
+  activeStore = store;
+  document.querySelectorAll('.filter-btn').forEach(btn => {{
+    btn.classList.toggle('active', btn.dataset.store === store);
   }});
+  applyFilter();
+}}
+
+function applyFilter() {{
+  const q = document.getElementById('search').value.toLowerCase();
+  let visible = 0;
+  document.querySelectorAll('#mainTable tbody tr').forEach(tr => {{
+    const storeMatch = activeStore === 'all' || tr.dataset.store === activeStore;
+    const textMatch  = tr.textContent.toLowerCase().includes(q);
+    const show = storeMatch && textMatch;
+    tr.style.display = show ? '' : 'none';
+    if (show) visible++;
+  }});
+  document.getElementById('count').textContent = visible + '건';
 }}
 </script>
 </body>
