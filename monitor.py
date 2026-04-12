@@ -301,13 +301,18 @@ def generate_ai_recommendations(below: list, contexts: dict = None, batch_size: 
             book_lines.append(line)
 
         prompt = (
-            "다음은 현재 평점이 낮은 도서 목록입니다. "
-            "출판사 마케터 관점에서 각 도서의 상황(평점, 변동, 리뷰 수, 타 서점 비교)을 분석하여 "
-            "평점 개선을 위한 구체적인 대응 방안을 1~2문장으로 작성해주세요.\n\n"
+            "당신은 IT/컴퓨터 도서 출판사의 마케팅 담당자입니다.\n"
+            "아래는 현재 평점이 기준치(9.0) 미만인 도서 목록입니다.\n\n"
             + "\n".join(book_lines) +
-            "\n\n응답은 반드시 아래 JSON 형식으로만 작성하세요 (설명 없이):\n"
-            '{"ISBN_서점": "대응 방안", ...}\n'
-            '예: {"9791163030034_aladin": "리뷰 수가 적고 평점이 하락 중이므로 독자 리뷰 이벤트 진행 권고"}'
+            "\n\n각 도서에 대해 지금 당장 실행할 수 있는 마케팅 대응 액션을 1~2문장으로 작성하세요.\n"
+            "규칙:\n"
+            "- 현황 설명(평점이 낮다, 리뷰가 적다 등)은 쓰지 말 것\n"
+            "- 도서별로 서로 다른 구체적 액션을 제안할 것 (예: SNS 홍보, 저자 인터뷰, 독자 이벤트, 커뮤니티 공략, 할인 프로모션, 오탈자 수정 공지 등)\n"
+            "- 평점 변동, 리뷰 수, 서점 특성을 고려해 도서마다 다른 전략을 제안할 것\n"
+            "- 행동 동사로 시작할 것 (예: '진행하세요', '검토하세요', '발송하세요')\n\n"
+            "응답은 반드시 아래 JSON 형식으로만 작성하세요 (설명 없이):\n"
+            '{"ISBN_서점": "대응 액션", ...}\n'
+            '예: {"9791163030034_aladin": "저자와 협력해 독자 Q&A 이벤트를 알라딘 서평단 대상으로 진행하세요."}'
         )
         try:
             result = subprocess.run(
@@ -315,9 +320,21 @@ def generate_ai_recommendations(below: list, contexts: dict = None, batch_size: 
                 capture_output=True, text=True, timeout=120
             )
             text = result.stdout
-            m = re.search(r'\{.*\}', text, re.DOTALL)
+            # JSON 블록 추출 (코드블록 안에 있을 수도 있음)
+            m = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', text, re.DOTALL)
+            if not m:
+                m = re.search(r'\{.*\}', text, re.DOTALL)
             if m:
-                all_recs.update(json.loads(m.group()))
+                raw_json = m.group(1) if m.lastindex else m.group()
+                try:
+                    parsed = json.loads(raw_json)
+                    # 키 정규화: 공백 제거, 대소문자 유지
+                    for k, v in parsed.items():
+                        all_recs[k.strip()] = v
+                except json.JSONDecodeError:
+                    print(f"[AI 권고] 배치 {i//batch_size + 1} JSON 파싱 실패:\n{raw_json[:200]}")
+            else:
+                print(f"[AI 권고] 배치 {i//batch_size + 1} JSON 없음:\n{text[:200]}")
             print(f"  배치 {i//batch_size + 1}/{(len(below)-1)//batch_size + 1} 완료 ({len(all_recs)}건)")
         except Exception as e:
             print(f"[AI 권고 생성 실패] 배치 {i//batch_size + 1}: {e}")
