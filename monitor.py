@@ -533,6 +533,8 @@ def save_dashboard(below: list, recs: dict, threshold: float, now: str, cache: d
     auth_script = ""
     auth_style = ""
     if password:
+        import hashlib
+        pw_hash = hashlib.sha256(password.encode()).hexdigest()
         auth_style = """
   #auth-overlay {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -572,8 +574,11 @@ def save_dashboard(below: list, recs: dict, threshold: float, now: str, cache: d
     document.getElementById('auth-overlay').style.display = 'none';
   }}
 }})();
-function checkPw() {{
-  if (document.getElementById('pw-input').value === '{password}') {{
+async function checkPw() {{
+  const input = document.getElementById('pw-input').value;
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input));
+  const hash = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+  if (hash === '{pw_hash}') {{
     sessionStorage.setItem('dashboard_auth', '1');
     document.getElementById('auth-overlay').style.display = 'none';
   }} else {{

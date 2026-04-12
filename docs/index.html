@@ -105,8 +105,11 @@
     document.getElementById('auth-overlay').style.display = 'none';
   }
 })();
-function checkPw() {
-  if (document.getElementById('pw-input').value === 'easyspub2024') {
+async function checkPw() {
+  const input = document.getElementById('pw-input').value;
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input));
+  const hash = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+  if (hash === '4cf158505967a857146772522815330501a5dba90610597918713b53fdc0bad2') {
     sessionStorage.setItem('dashboard_auth', '1');
     document.getElementById('auth-overlay').style.display = 'none';
   } else {
@@ -116,7 +119,7 @@ function checkPw() {
 </script>
 
 <h1>도서 평점 대시보드</h1>
-<p class="meta">마지막 업데이트: 2026-04-12 12:00 &nbsp;|&nbsp; 임계값: 9.0 미만</p>
+<p class="meta">마지막 업데이트: 2026-04-13 10:00 &nbsp;|&nbsp; 임계값: 9.0 미만</p>
 
 <div class="cards">
   <div class="card blue"><div class="num">2</div><div class="label">전체 미만 도서</div></div>
@@ -135,9 +138,9 @@ function checkPw() {
 
 <p style="font-size:12px;color:#aaa;margin-bottom:16px;">총 <span id="count">2</span>건 표시 중</p>
 
-<div class="section"><h2>된다! 시리즈 <span>1건</span></h2><table class="mainTable"><thead><tr><th>평점</th><th>서점</th><th>도서명</th><th style="text-align:center">리뷰 수</th><th>AI 대응 권고</th></tr></thead><tbody><tr class="critical" data-store="aladin"><td class="rating">8.2</td><td><span class="badge aladin">aladin</span></td><td><a href="https://www.aladin.co.kr/shop/wproduct.aspx?ISBN=9791163030034" target="_blank">된다! 테스트 도서 A</a></td><td class="review-count">—</td><td class="rec">—</td></tr>
+<div class="section"><h2>된다! 시리즈 <span>1건</span></h2><table class="mainTable"><thead><tr><th>평점</th><th>서점</th><th>도서명</th><th style="text-align:center">리뷰 수</th><th>AI 대응 권고</th></tr></thead><tbody><tr class="critical" data-store="aladin"><td class="rating">8.2</td><td><span class="badge aladin">aladin</span></td><td><a href="https://www.aladin.co.kr" target="_blank">된다! 테스트 도서 A</a></td><td class="review-count">—</td><td class="rec">—</td></tr>
 </tbody></table></div>
-<div class="section"><h2>Do it! 시리즈 <span>1건</span></h2><table class="mainTable"><thead><tr><th>평점</th><th>서점</th><th>도서명</th><th style="text-align:center">리뷰 수</th><th>AI 대응 권고</th></tr></thead><tbody><tr class="warning" data-store="yes24"><td class="rating">8.7</td><td><span class="badge yes24">yes24</span></td><td><a href="https://www.yes24.com/Product/Search?query=9791163030195" target="_blank">Do it! 테스트 도서 B</a></td><td class="review-count">—</td><td class="rec">—</td></tr>
+<div class="section"><h2>Do it! 시리즈 <span>1건</span></h2><table class="mainTable"><thead><tr><th>평점</th><th>서점</th><th>도서명</th><th style="text-align:center">리뷰 수</th><th>AI 대응 권고</th></tr></thead><tbody><tr class="warning" data-store="yes24"><td class="rating">8.7</td><td><span class="badge yes24">yes24</span></td><td><a href="https://www.yes24.com" target="_blank">Do it! 테스트 도서 B</a></td><td class="review-count">—</td><td class="rec">—</td></tr>
 </tbody></table></div>
 <div class="section"><h2>기타 <span>0건</span></h2><p style='color:#aaa;font-size:13px;padding:8px 0'>해당 없음</p></div>
 
