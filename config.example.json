@@ -1,0 +1,17 @@
+{
+  "threshold": 9.0,
+  "claude_api_key": "sk-ant-api03-YOUR_API_KEY_HERE",
+  "notification": {
+    "slack_webhook": "",
+    "email": {
+      "enabled": true,
+      "smtp_server": "smtp.gmail.com",
+      "smtp_port": 587,
+      "username": "your@email.com",
+      "password": "your_app_password",
+      "to": "your@email.com"
+    }
+  },
+  "workers": 8,
+  "stores": ["aladin", "yes24", "kyobo"]
+}
