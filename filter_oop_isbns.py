@@ -76,12 +76,9 @@ def main():
         print("판매불가 도서 없음.")
         return
 
-    confirm = input("\nisbns.txt에서 삭제할까요? (y/n): ").strip().lower()
-    if confirm == "y":
+    if remove:
         ISBNS_FILE.write_text("\n".join(keep) + "\n")
         print(f"완료. {len(remove)}개 삭제, {len(keep)}개 유지.")
-    else:
-        print("취소.")
 
 
 if __name__ == "__main__":
