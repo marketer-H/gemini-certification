@@ -84,16 +84,19 @@ def save_cache(cache: dict):
 
 # ─── 알라딘 ───────────────────────────────────────────────────
 def get_aladin_rating(isbn: str) -> tuple:
+    """(rating, title, review_count) 반환"""
     url = f"https://www.aladin.co.kr/shop/wproduct.aspx?ISBN={isbn}"
     try:
         r = requests.get(url, headers=HTML_HEADERS, timeout=15)
         if r.status_code != 200:
-            return None, ""
+            return None, "", 0
         m = re.search(r'"ratingValue":\s*"?([0-9]+(?:\.[0-9]+)?)"?', r.text)
         rating = float(m.group(1)) if m else None
         t = re.search(r'<meta property="og:title" content="([^"]+)"', r.text)
         title = t.group(1).strip() if t else ""
-        return rating, title
+        rc = re.search(r'"reviewCount":\s*"?(\d+)"?', r.text)
+        review_count = int(rc.group(1)) if rc else 0
+        return rating, title, review_count
     except Exception:
         return None, ""
 
@@ -181,7 +184,11 @@ def process_isbn(isbn: str, stores: list, yes24_session: requests.Session,
     results = {}
     for store in stores:
         if store == "aladin":
-            results[store] = get_aladin_rating(isbn)
+            rating, title, review_count = get_aladin_rating(isbn)
+            results[store] = (rating, title)
+            if review_count:
+                with cache_lock:
+                    cache[f"_reviews_{isbn}"] = review_count
         elif store == "yes24":
             results[store] = get_yes24_rating(isbn, yes24_session)
         elif store == "kyobo":
@@ -263,31 +270,54 @@ def send_email(config: dict, subject: str, text_body: str,
 
 # ─── AI 권고 / HTML / Excel ───────────────────────────────────
 
-def generate_ai_recommendations(below: list, api_key: str = "", batch_size: int = 15) -> dict:
+def generate_ai_recommendations(below: list, contexts: dict = None, batch_size: int = 15) -> dict:
     """Claude CLI(-p)로 도서별 대응 권고 생성 (배치 처리). {'isbn_store': '권고문'} 반환"""
     import subprocess
     if not below:
         return {}
     all_recs = {}
+    contexts = contexts or {}
 
     for i in range(0, len(below), batch_size):
         batch = below[i:i + batch_size]
-        book_list = "\n".join(
-            f"- {title} (ISBN: {isbn}, 서점: {store}, 평점: {r:.1f})"
-            for r, store, isbn, title, url in batch
-        )
+        book_lines = []
+        for r, store, isbn, title, url in batch:
+            ctx = contexts.get(isbn, {})
+            all_ratings = ctx.get("all_ratings", {})
+            prev_r = ctx.get("prev_rating")
+            review_count = ctx.get("review_count", 0)
+
+            other_stores = ", ".join(
+                f"{s}={v:.1f}" for s, v in all_ratings.items() if s != store and v is not None
+            )
+            trend = ""
+            if prev_r is not None and prev_r != r:
+                trend = f"이전 {prev_r:.1f}→현재 {r:.1f} ({'하락' if r < prev_r else '상승'})"
+            elif prev_r == r:
+                trend = f"변동 없음 ({r:.1f})"
+
+            line = f"- {title} (ISBN: {isbn}, 서점: {store}, 현재 평점: {r:.1f})"
+            if other_stores:
+                line += f"\n  다른 서점 평점: {other_stores}"
+            if trend:
+                line += f"\n  평점 변동: {trend}"
+            if review_count:
+                line += f"\n  리뷰 수: {review_count}개"
+            book_lines.append(line)
+
         prompt = (
             "다음은 현재 평점이 낮은 도서 목록입니다. "
-            "출판사 마케터 관점에서 각 도서의 평점 개선을 위한 구체적인 대응 방안을 1~2문장으로 작성해주세요.\n\n"
-            f"{book_list}\n\n"
-            "응답은 반드시 아래 JSON 형식으로만 작성하세요 (설명 없이):\n"
+            "출판사 마케터 관점에서 각 도서의 상황(평점, 변동, 리뷰 수, 타 서점 비교)을 분석하여 "
+            "평점 개선을 위한 구체적인 대응 방안을 1~2문장으로 작성해주세요.\n\n"
+            + "\n".join(book_lines) +
+            "\n\n응답은 반드시 아래 JSON 형식으로만 작성하세요 (설명 없이):\n"
             '{"ISBN_서점": "대응 방안", ...}\n'
-            '예: {"9791163030034_aladin": "독자 리뷰 이벤트 및 SNS 홍보 강화 검토"}'
+            '예: {"9791163030034_aladin": "리뷰 수가 적고 평점이 하락 중이므로 독자 리뷰 이벤트 진행 권고"}'
         )
         try:
             result = subprocess.run(
                 ["claude", "-p", prompt],
-                capture_output=True, text=True, timeout=60
+                capture_output=True, text=True, timeout=120
             )
             text = result.stdout
             m = re.search(r'\{.*\}', text, re.DOTALL)
@@ -472,7 +502,13 @@ def report():
         below.append((rating, store, isbn, title, store_url))
 
     print("\nAI 대응 권고 생성 중...")
-    recs = generate_ai_recommendations(below)
+    contexts = {}
+    for r, store, isbn, title, url in below:
+        if isbn not in contexts:
+            all_ratings = {s: state.get(isbn, {}).get(s) for s in stores if state.get(isbn, {}).get(s) is not None}
+            review_count = cache.get(f"_reviews_{isbn}", 0)
+            contexts[isbn] = {"all_ratings": all_ratings, "prev_rating": None, "review_count": review_count}
+    recs = generate_ai_recommendations(below, contexts=contexts)
 
     lines = [f"[{now_str}] 현재 평점 {threshold} 미만 도서 ({len(below)}건)\n"]
     for r, store, isbn, title, url in below:
@@ -506,6 +542,9 @@ def run():
     print(f"도서 평점 모니터 실행: {now}{mode_label}")
     print(f"대상 도서: {len(isbns)}권 | 임계값: {threshold} | 병렬: {workers}개")
     print(f"{'='*60}\n")
+
+    # 이전 상태 저장 (AI 권고에 변동 정보 활용)
+    prev_state = {isbn: dict(s) for isbn, s in state.items()}
 
     # Yes24 세션 1회 초기화 (쿠키 획득)
     yes24_session = requests.Session()
@@ -632,10 +671,21 @@ def run():
         notif = config.get("notification", {})
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
         if below:
-            # AI 권고 생성
-            api_key = config.get("claude_api_key") or os.environ.get("ANTHROPIC_API_KEY", "")
+            # AI 권고용 context 빌드 (서점 간 비교, 이전 대비 변동, 리뷰 수)
+            contexts = {}
+            for r, store, isbn, title, url in below:
+                if isbn not in contexts:
+                    all_ratings = {s: state[isbn].get(s) for s in stores if state[isbn].get(s) is not None}
+                    prev_r = prev_state.get(isbn, {}).get(store)
+                    review_count = cache.get(f"_reviews_{isbn}", 0)
+                    contexts[isbn] = {
+                        "all_ratings": all_ratings,
+                        "prev_rating": prev_r,
+                        "review_count": review_count,
+                    }
+
             print("\nAI 대응 권고 생성 중...")
-            recs = generate_ai_recommendations(below, api_key)
+            recs = generate_ai_recommendations(below, contexts=contexts)
 
             # 텍스트 본문
             lines = [f"[{now_str}] 현재 평점 {threshold} 미만 도서 ({len(below)}건)\n"]
