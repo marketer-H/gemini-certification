@@ -252,9 +252,29 @@
     .feedback.correct-fb { background: #1DB95415; border: 1px solid #1DB95433; color: #6deea0; }
     .feedback.wrong-fb   { background: #E8434315; border: 1px solid #E8434333; color: #ff9090; }
 
-    .btn-next {
-      width: 100%;
+    .nav-btns {
+      display: flex;
+      gap: 10px;
       margin-top: 20px;
+    }
+
+    .btn-prev {
+      flex: 1;
+      padding: 16px;
+      border-radius: 14px;
+      background: var(--card2);
+      border: 1.5px solid var(--border);
+      color: var(--muted);
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      display: none;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .btn-prev:hover { border-color: #4f8cff88; color: var(--text); }
+
+    .btn-next {
+      flex: 2;
       padding: 16px;
       border-radius: 14px;
       background: linear-gradient(135deg, #4f8cff, #9b59b6);
@@ -432,7 +452,10 @@
     <div class="q-text" id="q-text"></div>
     <div id="q-options"></div>
     <div class="feedback" id="feedback"></div>
-    <button class="btn-next" id="btn-next" onclick="nextQuestion()">다음 문제 →</button>
+    <div class="nav-btns">
+      <button class="btn-prev" id="btn-prev" onclick="prevQuestion()">← 이전</button>
+      <button class="btn-next" id="btn-next" onclick="nextQuestion()">다음 문제 →</button>
+    </div>
   </div>
 </div>
 
@@ -728,22 +751,30 @@
 
   // ── 상태 ─────────────────────────────────────────────────
   let current = 0;
-  let score = 0;
-  let lvScore = [0, 0, 0];
-  let answered = false;
+  // userAnswers[i] = null(미답) | { selected, isCorrect }
+  let userAnswers = [];
+
+  function calcScore() {
+    let s = 0, lv = [0, 0, 0];
+    userAnswers.forEach((a, i) => {
+      if (a && a.isCorrect) { s++; lv[questions[i].level - 1]++; }
+    });
+    return { score: s, lvScore: lv };
+  }
 
   // ── 시작 ─────────────────────────────────────────────────
   function startQuiz() {
-    current = 0; score = 0; lvScore = [0, 0, 0]; answered = false;
+    current = 0;
+    userAnswers = new Array(questions.length).fill(null);
     document.getElementById('intro').style.display = 'none';
     document.getElementById('quiz').style.display = 'block';
     renderQuestion();
   }
 
   function renderQuestion() {
-    answered = false;
     const q = questions[current];
     const total = questions.length;
+    const { score } = calcScore();
 
     // 진행 바
     document.getElementById('qnum').textContent = `${current + 1} / ${total}`;
@@ -762,6 +793,8 @@
     const optWrap = document.getElementById('q-options');
     optWrap.innerHTML = '';
 
+    const saved = userAnswers[current];
+
     if (q.type === 'mc') {
       const nums = ['①', '②', '③', '④'];
       q.options.forEach((opt, i) => {
@@ -771,8 +804,15 @@
         btn.onclick = () => selectMC(i, btn);
         optWrap.appendChild(btn);
       });
+      // 이전에 답한 문제라면 상태 복원
+      if (saved !== null) {
+        const btns = optWrap.querySelectorAll('.option-btn');
+        btns.forEach(b => b.disabled = true);
+        btns[saved.selected].classList.add(saved.isCorrect ? 'correct' : 'wrong');
+        if (!saved.isCorrect) btns[q.answer].classList.add('reveal-correct');
+        showFeedback(saved.isCorrect, q.comment, false);
+      }
     } else {
-      // O/X
       const wrap = document.createElement('div');
       wrap.className = 'ox-wrap';
       ['O', 'X'].forEach(v => {
@@ -783,55 +823,79 @@
         wrap.appendChild(btn);
       });
       optWrap.appendChild(wrap);
+      // 이전에 답한 문제라면 상태 복원
+      if (saved !== null) {
+        const btns = wrap.querySelectorAll('.ox-btn');
+        btns.forEach(b => b.disabled = true);
+        const selBtn = saved.selected === 'O' ? btns[0] : btns[1];
+        selBtn.classList.add(saved.isCorrect ? 'correct' : 'wrong');
+        if (!saved.isCorrect) {
+          (saved.selected === 'O' ? btns[1] : btns[0]).classList.add('reveal-correct');
+        }
+        showFeedback(saved.isCorrect, q.comment, false);
+      }
     }
 
-    document.getElementById('feedback').style.display = 'none';
-    document.getElementById('feedback').textContent = '';
-    document.getElementById('btn-next').style.display = 'none';
+    // 피드백/버튼 초기화 (미답 문제)
+    if (saved === null) {
+      document.getElementById('feedback').style.display = 'none';
+      document.getElementById('feedback').textContent = '';
+      document.getElementById('btn-next').style.display = 'none';
+    }
+
+    // 이전 버튼
+    const prevBtn = document.getElementById('btn-prev');
+    prevBtn.style.display = current > 0 ? 'block' : 'none';
   }
 
   function selectMC(idx, btn) {
-    if (answered) return;
-    answered = true;
+    if (userAnswers[current] !== null) return;
     const q = questions[current];
     const btns = document.querySelectorAll('.option-btn');
     btns.forEach(b => b.disabled = true);
 
     const isCorrect = idx === q.answer;
-    if (isCorrect) { score++; lvScore[q.level - 1]++; }
+    userAnswers[current] = { selected: idx, isCorrect };
 
     btn.classList.add(isCorrect ? 'correct' : 'wrong');
     if (!isCorrect) btns[q.answer].classList.add('reveal-correct');
 
-    showFeedback(isCorrect, q.comment);
+    showFeedback(isCorrect, q.comment, true);
   }
 
   function selectOX(val, btn) {
-    if (answered) return;
-    answered = true;
+    if (userAnswers[current] !== null) return;
     const q = questions[current];
     const btns = document.querySelectorAll('.ox-btn');
     btns.forEach(b => b.disabled = true);
 
     const isCorrect = val === q.answer;
-    if (isCorrect) { score++; lvScore[q.level - 1]++; }
+    userAnswers[current] = { selected: val, isCorrect };
 
     btn.classList.add(isCorrect ? 'correct' : 'wrong');
     if (!isCorrect) {
-      btns[val === 'O' ? 1 : 0].classList.add('reveal-correct');
+      (val === 'O' ? btns[1] : btns[0]).classList.add('reveal-correct');
     }
 
-    showFeedback(isCorrect, q.comment);
+    showFeedback(isCorrect, q.comment, true);
   }
 
-  function showFeedback(isCorrect, comment) {
+  function showFeedback(isCorrect, comment, updateScore) {
     const fb = document.getElementById('feedback');
     fb.className = 'feedback ' + (isCorrect ? 'correct-fb' : 'wrong-fb');
     fb.textContent = (isCorrect ? '✅ 정답! ' : '❌ 오답! ') + comment;
     fb.style.display = 'block';
-    document.getElementById('btn-next').style.display = 'block';
-    document.getElementById('btn-next').textContent =
-      current === questions.length - 1 ? '결과 보기 →' : '다음 문제 →';
+
+    const nextBtn = document.getElementById('btn-next');
+    nextBtn.style.display = 'block';
+    nextBtn.textContent = current === questions.length - 1 ? '결과 보기 →' : '다음 문제 →';
+
+    document.getElementById('btn-prev').style.display = current > 0 ? 'block' : 'none';
+
+    if (updateScore) {
+      const { score } = calcScore();
+      document.getElementById('score-live').textContent = `${score}점`;
+    }
   }
 
   function nextQuestion() {
@@ -840,11 +904,16 @@
     else renderQuestion();
   }
 
+  function prevQuestion() {
+    if (current > 0) { current--; renderQuestion(); }
+  }
+
   // ── 결과 ─────────────────────────────────────────────────
   function showResult() {
     document.getElementById('quiz').style.display = 'none';
     document.getElementById('result').style.display = 'block';
 
+    const { score, lvScore } = calcScore();
     const pct = Math.round((score / 30) * 100);
     document.getElementById('score-circle').style.setProperty('--pct', pct);
     document.getElementById('score-num').textContent = score;
@@ -884,7 +953,7 @@
   function restartQuiz() {
     document.getElementById('result').style.display = 'none';
     document.getElementById('cert-box').style.display = 'none';
-    startQuiz();
+    document.getElementById('intro').style.display = 'flex';
   }
 </script>
 </body>
