@@ -836,16 +836,17 @@
       }
     }
 
-    // 피드백/버튼 초기화 (미답 문제)
+    // 피드백 초기화 (미답 문제)
     if (saved === null) {
       document.getElementById('feedback').style.display = 'none';
       document.getElementById('feedback').textContent = '';
-      document.getElementById('btn-next').style.display = 'none';
     }
 
-    // 이전 버튼
-    const prevBtn = document.getElementById('btn-prev');
-    prevBtn.style.display = current > 0 ? 'block' : 'none';
+    // 이전/다음 버튼 항상 표시
+    document.getElementById('btn-prev').style.display = current > 0 ? 'block' : 'none';
+    const nextBtn = document.getElementById('btn-next');
+    nextBtn.style.display = 'block';
+    nextBtn.textContent = current === questions.length - 1 ? '결과 보기 →' : '다음 문제 →';
   }
 
   function selectMC(idx, btn) {
@@ -885,12 +886,6 @@
     fb.className = 'feedback ' + (isCorrect ? 'correct-fb' : 'wrong-fb');
     fb.textContent = (isCorrect ? '✅ 정답! ' : '❌ 오답! ') + comment;
     fb.style.display = 'block';
-
-    const nextBtn = document.getElementById('btn-next');
-    nextBtn.style.display = 'block';
-    nextBtn.textContent = current === questions.length - 1 ? '결과 보기 →' : '다음 문제 →';
-
-    document.getElementById('btn-prev').style.display = current > 0 ? 'block' : 'none';
 
     if (updateScore) {
       const { score } = calcScore();
