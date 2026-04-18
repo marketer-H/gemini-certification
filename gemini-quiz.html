@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>제미나이 활용 능력 인증 시험</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green:  #1DB954;
+      --yellow: #F5A623;
+      --red:    #E84343;
+      --bg:     #0f0f1a;
+      --card:   #1a1a2e;
+      --card2:  #16213e;
+      --text:   #e8e8f0;
+      --muted:  #8888aa;
+      --border: #2a2a4a;
+      --accent: #4f8cff;
+    }
+
+    body {
+      font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── 인트로 ── */
+    #intro {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 40px 20px;
+      text-align: center;
+    }
+
+    .badge {
+      display: inline-block;
+      background: linear-gradient(135deg, #4f8cff22, #9b59b622);
+      border: 1px solid #4f8cff55;
+      border-radius: 100px;
+      padding: 6px 18px;
+      font-size: 13px;
+      color: var(--accent);
+      margin-bottom: 24px;
+      letter-spacing: 0.05em;
+    }
+
+    h1 {
+      font-size: clamp(26px, 5vw, 44px);
+      font-weight: 800;
+      line-height: 1.25;
+      margin-bottom: 16px;
+      background: linear-gradient(135deg, #fff 0%, #a0b8ff 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      font-size: 15px;
+      color: var(--muted);
+      max-width: 480px;
+      line-height: 1.7;
+      margin-bottom: 40px;
+    }
+
+    .info-grid {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-bottom: 40px;
+    }
+
+    .info-chip {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 22px;
+      font-size: 14px;
+    }
+
+    .info-chip strong { display: block; font-size: 20px; margin-bottom: 4px; color: #fff; }
+
+    .btn-start {
+      background: linear-gradient(135deg, #4f8cff, #9b59b6);
+      color: #fff;
+      border: none;
+      border-radius: 16px;
+      padding: 18px 52px;
+      font-size: 17px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+      box-shadow: 0 8px 32px #4f8cff33;
+    }
+    .btn-start:hover { transform: translateY(-2px); box-shadow: 0 12px 40px #4f8cff55; }
+
+    /* ── 퀴즈 화면 ── */
+    #quiz { display: none; padding: 20px; max-width: 760px; margin: 0 auto; }
+
+    .progress-wrap {
+      position: sticky;
+      top: 0;
+      background: var(--bg);
+      padding: 16px 0 12px;
+      z-index: 10;
+      margin-bottom: 28px;
+    }
+
+    .progress-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .progress-meta .qnum { font-weight: 700; font-size: 15px; color: #fff; }
+
+    .progress-bar-bg {
+      height: 6px;
+      background: var(--card);
+      border-radius: 99px;
+      overflow: hidden;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      border-radius: 99px;
+      background: linear-gradient(90deg, #4f8cff, #9b59b6);
+      transition: width 0.4s ease;
+    }
+
+    .level-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 4px 12px;
+      border-radius: 100px;
+      margin-bottom: 16px;
+      letter-spacing: 0.04em;
+    }
+    .level-1 { background: #1DB95422; color: #1DB954; border: 1px solid #1DB95444; }
+    .level-2 { background: #F5A62322; color: #F5A623; border: 1px solid #F5A62344; }
+    .level-3 { background: #E8434322; color: #E84343; border: 1px solid #E8434344; }
+
+    .q-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 28px 28px 24px;
+    }
+
+    .q-text {
+      font-size: 17px;
+      font-weight: 600;
+      line-height: 1.65;
+      margin-bottom: 24px;
+      color: #fff;
+    }
+
+    .options { display: flex; flex-direction: column; gap: 10px; }
+
+    .option-btn {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: var(--card2);
+      border: 1.5px solid var(--border);
+      border-radius: 14px;
+      padding: 14px 18px;
+      cursor: pointer;
+      font-size: 15px;
+      color: var(--text);
+      text-align: left;
+      transition: border-color 0.15s, background 0.15s, transform 0.1s;
+      width: 100%;
+    }
+    .option-btn:hover:not(:disabled) {
+      border-color: #4f8cff88;
+      background: #1e2240;
+      transform: translateX(2px);
+    }
+
+    .opt-num {
+      min-width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .option-btn.correct {
+      border-color: var(--green);
+      background: #1DB95415;
+    }
+    .option-btn.correct .opt-num { background: var(--green); color: #000; }
+
+    .option-btn.wrong {
+      border-color: var(--red);
+      background: #E8434315;
+    }
+    .option-btn.wrong .opt-num { background: var(--red); color: #fff; }
+
+    .option-btn.reveal-correct {
+      border-color: var(--green);
+      background: #1DB95410;
+    }
+    .option-btn.reveal-correct .opt-num { background: #1DB95444; color: var(--green); }
+
+    /* O/X 문제 */
+    .ox-wrap { display: flex; gap: 12px; }
+    .ox-btn {
+      flex: 1;
+      padding: 18px;
+      border-radius: 14px;
+      background: var(--card2);
+      border: 1.5px solid var(--border);
+      cursor: pointer;
+      font-size: 26px;
+      font-weight: 800;
+      text-align: center;
+      color: var(--text);
+      transition: all 0.15s;
+    }
+    .ox-btn:hover:not(:disabled) { border-color: #4f8cff88; background: #1e2240; }
+    .ox-btn.correct { border-color: var(--green); background: #1DB95415; color: var(--green); }
+    .ox-btn.wrong   { border-color: var(--red);   background: #E8434315; color: var(--red); }
+    .ox-btn.reveal-correct { border-color: var(--green); background: #1DB95410; color: var(--green); }
+
+    .feedback {
+      margin-top: 18px;
+      padding: 14px 18px;
+      border-radius: 12px;
+      font-size: 14px;
+      line-height: 1.6;
+      display: none;
+    }
+    .feedback.correct-fb { background: #1DB95415; border: 1px solid #1DB95433; color: #6deea0; }
+    .feedback.wrong-fb   { background: #E8434315; border: 1px solid #E8434333; color: #ff9090; }
+
+    .btn-next {
+      width: 100%;
+      margin-top: 20px;
+      padding: 16px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #4f8cff, #9b59b6);
+      color: #fff;
+      font-size: 15px;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+      display: none;
+      transition: opacity 0.15s;
+    }
+    .btn-next:hover { opacity: 0.9; }
+
+    /* ── 결과 화면 ── */
+    #result {
+      display: none;
+      padding: 40px 20px;
+      max-width: 640px;
+      margin: 0 auto;
+      text-align: center;
+    }
+
+    .result-icon { font-size: 72px; margin-bottom: 20px; }
+
+    .result-grade {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      color: var(--accent);
+      margin-bottom: 10px;
+      text-transform: uppercase;
+    }
+
+    .result-title {
+      font-size: 30px;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+
+    .result-sub {
+      font-size: 15px;
+      color: var(--muted);
+      margin-bottom: 32px;
+      line-height: 1.6;
+    }
+
+    .score-circle {
+      width: 160px;
+      height: 160px;
+      border-radius: 50%;
+      background: conic-gradient(var(--accent) calc(var(--pct) * 1%), var(--card) 0%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 36px;
+      position: relative;
+    }
+    .score-circle::before {
+      content: '';
+      position: absolute;
+      width: 130px;
+      height: 130px;
+      background: var(--bg);
+      border-radius: 50%;
+    }
+    .score-inner {
+      position: relative;
+      z-index: 1;
+    }
+    .score-num { font-size: 36px; font-weight: 800; color: #fff; line-height: 1; }
+    .score-denom { font-size: 14px; color: var(--muted); }
+
+    .level-breakdown {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 32px;
+    }
+    .lv-chip {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px 20px;
+      min-width: 120px;
+    }
+    .lv-chip .lv-label { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+    .lv-chip .lv-score { font-size: 22px; font-weight: 800; color: #fff; }
+    .lv-chip .lv-total { font-size: 12px; color: var(--muted); }
+
+    .cert-box {
+      background: linear-gradient(135deg, #1a1a2e, #16213e);
+      border: 1.5px solid #4f8cff44;
+      border-radius: 20px;
+      padding: 28px 24px;
+      margin-bottom: 28px;
+      position: relative;
+      overflow: hidden;
+    }
+    .cert-box::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, #4f8cff08, transparent);
+    }
+    .cert-box .cert-label {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+    .cert-box .cert-name {
+      font-size: 18px;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 4px;
+    }
+    .cert-box .cert-date { font-size: 13px; color: var(--muted); }
+
+    .btn-retry {
+      background: var(--card);
+      border: 1.5px solid var(--border);
+      color: var(--text);
+      border-radius: 14px;
+      padding: 14px 36px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .btn-retry:hover { border-color: #4f8cff88; }
+
+    @media (max-width: 500px) {
+      .q-card { padding: 20px 16px; }
+      .q-text { font-size: 15px; }
+      .option-btn { font-size: 14px; padding: 12px 14px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ───────────── 인트로 ───────────── -->
+<div id="intro">
+  <div class="badge">📖 된다! 제미나이 활용법 공식 인증 시험</div>
+  <h1>제미나이 활용<br>능력 인증 시험</h1>
+  <p class="subtitle">
+    책을 끝까지 읽은 사람만 통과할 수 있는 30문항.<br>
+    70점 이상이면 수료 증명서를 받을 수 있습니다.
+  </p>
+  <div class="info-grid">
+    <div class="info-chip"><strong>30</strong>총 문항</div>
+    <div class="info-chip"><strong>70점</strong>합격 기준</div>
+    <div class="info-chip"><strong>3단계</strong>난이도</div>
+  </div>
+  <button class="btn-start" onclick="startQuiz()">시험 시작하기 →</button>
+</div>
+
+<!-- ───────────── 퀴즈 ───────────── -->
+<div id="quiz">
+  <div class="progress-wrap">
+    <div class="progress-meta">
+      <span class="qnum" id="qnum">1 / 30</span>
+      <span id="score-live">0점</span>
+    </div>
+    <div class="progress-bar-bg">
+      <div class="progress-bar-fill" id="prog-fill" style="width:0%"></div>
+    </div>
+  </div>
+
+  <div class="level-tag" id="level-tag">🟢 LEVEL 1</div>
+
+  <div class="q-card">
+    <div class="q-text" id="q-text"></div>
+    <div id="q-options"></div>
+    <div class="feedback" id="feedback"></div>
+    <button class="btn-next" id="btn-next" onclick="nextQuestion()">다음 문제 →</button>
+  </div>
+</div>
+
+<!-- ───────────── 결과 ───────────── -->
+<div id="result">
+  <div class="result-icon" id="result-icon">🏆</div>
+  <div class="result-grade" id="result-grade">GEMINI MASTER</div>
+  <div class="result-title" id="result-title">제미나이 마스터!</div>
+  <div class="result-sub" id="result-sub">완벽합니다. 진짜로 다 읽으셨군요.</div>
+
+  <div class="score-circle" id="score-circle">
+    <div class="score-inner">
+      <div class="score-num" id="score-num">0</div>
+      <div class="score-denom">/ 30점</div>
+    </div>
+  </div>
+
+  <div class="level-breakdown">
+    <div class="lv-chip">
+      <div class="lv-label">🟢 LEVEL 1</div>
+      <div class="lv-score" id="lv1-score">0</div>
+      <div class="lv-total">/ 10점</div>
+    </div>
+    <div class="lv-chip">
+      <div class="lv-label">🟡 LEVEL 2</div>
+      <div class="lv-score" id="lv2-score">0</div>
+      <div class="lv-total">/ 10점</div>
+    </div>
+    <div class="lv-chip">
+      <div class="lv-label">🔴 LEVEL 3</div>
+      <div class="lv-score" id="lv3-score">0</div>
+      <div class="lv-total">/ 10점</div>
+    </div>
+  </div>
+
+  <div class="cert-box" id="cert-box" style="display:none">
+    <div class="cert-label">✦ CERTIFICATE OF COMPLETION ✦</div>
+    <div class="cert-name">된다! 제미나이 활용법 수료 인증</div>
+    <div class="cert-date" id="cert-date"></div>
+  </div>
+
+  <button class="btn-retry" onclick="restartQuiz()">다시 도전하기</button>
+</div>
+
+<script>
+  // ── 문제 데이터 ──────────────────────────────────────────
+  const questions = [
+    // LEVEL 1 (1~10)
+    {
+      level: 1,
+      text: "제미나이(Gemini)를 개발한 회사는 어디인가요?",
+      type: "mc",
+      options: ["오픈AI", "마이크로소프트", "구글", "메타"],
+      answer: 2,
+      comment: "제미나이는 구글이 개발한 생성형 AI입니다. 챗GPT(오픈AI)와 헷갈리지 마세요!"
+    },
+    {
+      level: 1,
+      text: "제미나이의 요금제 3가지를 모두 고른 것은 무엇인가요?",
+      type: "mc",
+      options: ["베이직 / 스탠다드 / 프리미엄", "프리 / 프로 / 울트라", "라이트 / 플러스 / 맥스", "무료 / 유료 / 기업"],
+      answer: 1,
+      comment: "프리(무료), 프로(29,000원/월), 울트라(36만원/월) — 세 가지입니다."
+    },
+    {
+      level: 1,
+      text: "제미나이 프로(Pro) 요금제의 월 구독료는 얼마인가요? (책 기준)",
+      type: "mc",
+      options: ["9,900원", "19,000원", "29,000원", "39,000원"],
+      answer: 2,
+      comment: "프로 요금제는 29,000원/월이며, 첫 1개월은 무료입니다."
+    },
+    {
+      level: 1,
+      text: "제미나이의 대화 모드 3가지로 올바른 것은 무엇인가요?",
+      type: "mc",
+      options: ["일반 모드 / 심화 모드 / 전문가 모드", "텍스트 모드 / 이미지 모드 / 영상 모드", "빠른 모드 / 사고 모드 / 프로 모드", "기본 모드 / 고급 모드 / 울트라 모드"],
+      answer: 2,
+      comment: "빠른 모드(일상 대화), 사고 모드(복잡한 문제), 프로 모드(코딩·수학 등 고난도)."
+    },
+    {
+      level: 1,
+      text: "존재하지 않는 내용이나 잘못된 정보를 AI가 매우 그럴듯하게 생성하는 현상을 무엇이라고 하나요?",
+      type: "mc",
+      options: ["딥페이크 현상", "환각 현상", "오류 현상", "학습 오염"],
+      answer: 1,
+      comment: "💬 '세종대왕 맥북프로 던짐 사건'으로 유명해진 바로 그 현상입니다."
+    },
+    {
+      level: 1,
+      text: "생성형 AI가 텍스트를 처리할 때 사용하는 기본 단위로, 한 번에 처리할 수 있는 양이 정해져 있는 것은 무엇인가요?",
+      type: "mc",
+      options: ["바이트(Byte)", "청크(Chunk)", "토큰(Token)", "노드(Node)"],
+      answer: 2,
+      comment: "토큰 한도를 초과하면 대화 도중 내용이 잘리거나 맥락을 잊어버리는 현상이 생깁니다."
+    },
+    {
+      level: 1,
+      text: "제미나이와 같은 생성형 AI에게 지시할 때 입력하는 내용을 무엇이라고 하나요?",
+      type: "mc",
+      options: ["커맨드", "코드", "쿼리", "프롬프트"],
+      answer: 3,
+      comment: "생성형 AI에게 전달하는 지시문을 '프롬프트'라고 합니다."
+    },
+    {
+      level: 1,
+      text: "책에서 소개한 좋은 프롬프트 작성의 2가지 핵심 규칙으로 옳은 것은?",
+      type: "mc",
+      options: ["짧게 쓰기 / 영어로 쓰기", "목적·형식·내용을 구체적으로 쓰기 / 전문성 또는 역할 부여하기", "여러 번 반복해서 쓰기 / 친절하게 쓰기", "단계별로 나눠서 쓰기 / 예시 없이 쓰기"],
+      answer: 1,
+      comment: "① 구체적으로 설명하기, ② 전문성·역할 부여하기 — 이 두 가지가 핵심입니다."
+    },
+    {
+      level: 1,
+      text: "임시 채팅에서 나눈 대화는 몇 시간 후 자동으로 삭제되나요?",
+      type: "mc",
+      options: ["24시간", "48시간", "72시간", "일주일"],
+      answer: 2,
+      comment: "임시 채팅은 72시간 후 삭제되며, 모델 학습에도 사용되지 않습니다."
+    },
+    {
+      level: 1,
+      text: "AI가 생성한 결과물의 저작권·법적 책임 기준에 대해 책에서 설명한 내용으로 옳은 것은?",
+      type: "mc",
+      options: ["구글이 모든 책임을 진다", "아직 명확한 법적 기준이 마련되지 않아 사용자가 신중하게 이용해야 한다", "AI 결과물은 저작권이 없으므로 자유롭게 사용해도 된다", "유료 구독자는 상업적 이용이 모두 허용된다"],
+      answer: 1,
+      comment: "아직 법적 기준이 불명확합니다. 사용자 스스로 보수적으로 이용하는 태도가 필요합니다."
+    },
+
+    // LEVEL 2 (11~20)
+    {
+      level: 2,
+      text: "제미나이에서 결과물을 문서·인포그래픽·퀴즈·앱 등으로 자유롭게 구현하고 직접 편집까지 할 수 있는 작업 공간은 무엇인가요?",
+      type: "mc",
+      options: ["딥 리서치", "캔버스", "동적 뷰", "젬"],
+      answer: 1,
+      comment: "캔버스는 제미나이의 도화지! 결과물을 그 자리에서 수정하고 구현할 수 있습니다."
+    },
+    {
+      level: 2,
+      text: "딥 리서치(Deep Research)에 대한 설명으로 올바른 것은 무엇인가요?",
+      type: "mc",
+      options: ["이미지만 심층 분석하는 기능이다", "자료 조사부터 보고서 작성까지 한 번에 처리해 주는 심층 분석 기능이다", "구글 드라이브 파일만 검색하는 기능이다", "유료 구독자 전용으로 일반 모드보다 느리게 작동한다"],
+      answer: 1,
+      comment: "딥 리서치 = 조사 + 보고서 작성을 한 방에! 자료 조사 시간을 획기적으로 줄여줍니다."
+    },
+    {
+      level: 2,
+      text: "제미나이의 맞춤형 챗봇으로, 자주 쓰는 프롬프트나 작업 흐름을 저장해두고 쉽게 불러 쓸 수 있는 기능은?",
+      type: "mc",
+      options: ["에이전트", "봇", "젬(Gem)", "플러그인"],
+      answer: 2,
+      comment: "젬(Gem)은 반복 업무의 구세주! 한 번 만들어두면 클릭 한 번으로 실행됩니다."
+    },
+    {
+      level: 2,
+      text: "젬(Gem)을 팀원에게 공유하는 방법은 무엇인가요?",
+      type: "mc",
+      options: ["파일로 내보내어 이메일로 보낸다", "젬의 링크를 공유한다", "구글 드라이브에 저장 후 공유한다", "젬은 공유할 수 없다"],
+      answer: 1,
+      comment: "링크만 보내면 끝! 팀 전체가 같은 젬을 사용할 수 있습니다."
+    },
+    {
+      level: 2,
+      text: "제미나이에서 구글 캘린더·드라이브·지메일 등 구글 서비스를 연동하려면 입력 창에 어떤 기호를 먼저 입력해야 하나요?",
+      type: "mc",
+      options: ["#", "/", "@", "!"],
+      answer: 2,
+      comment: "@을 입력하면 연동 가능한 구글 앱 목록이 바로 나타납니다."
+    },
+    {
+      level: 2,
+      text: "[대답 재확인] 기능 사용 시, 구글 검색에서 확인되지 않는 내용은 어떤 색으로 표시되나요?",
+      type: "mc",
+      options: ["빨간색", "파란색", "주황색", "노란색"],
+      answer: 2,
+      comment: "초록색 = 구글에서 확인됨 ✅ / 주황색 = 확인 불가 ⚠️ 주황색이 뜨면 직접 검토하세요!"
+    },
+    {
+      level: 2,
+      text: "유튜브 영상 링크만 입력해도 제미나이가 내용을 요약해 줄 수 있는 이유는?",
+      type: "mc",
+      options: ["제미나이가 모든 유튜브 영상을 미리 학습했기 때문에", "유튜브와 제미나이가 모두 구글 서비스라 연동되기 때문에", "크롬 브라우저 확장 기능 덕분에", "유튜브 프리미엄 구독 시 자동 연동되기 때문에"],
+      answer: 1,
+      comment: "같은 구글 가족이라 가능한 일! 링크 하나로 요약·타임라인 추출까지 됩니다."
+    },
+    {
+      level: 2,
+      text: "제미나이 입력 창의 [동적 뷰] 기능에 대한 설명으로 올바른 것은?",
+      type: "mc",
+      options: ["PDF 파일을 업로드하는 기능이다", "사용자의 프롬프트에 맞게 UI를 실시간으로 디자인하고 코딩하는 기능이다", "구글 캘린더와 연동해 일정을 자동 입력하는 기능이다", "대화 내용을 음성으로 변환해 주는 기능이다"],
+      answer: 1,
+      comment: "예를 들어 '한국 주요 관광지 소개해줘'라고 하면 웹페이지처럼 만들어서 보여줍니다."
+    },
+    {
+      level: 2,
+      text: "제미나이로 구글 앱스 스크립트(Apps Script)를 활용하면 자동 생성할 수 있는 것은?",
+      type: "mc",
+      options: ["유튜브 채널", "구글 계정", "구글 설문지", "구글 드라이브 폴더"],
+      answer: 2,
+      comment: "코딩 몰라도 OK! 제미나이가 Apps Script 코드를 짜주고 설문지를 자동으로 만들어줍니다."
+    },
+    {
+      level: 2,
+      text: "책에서 제시한 프롬프트 5단계 작성 순서로 올바른 것은?",
+      type: "mc",
+      options: ["결과 형식 → 역할 부여 → 작업 설명 → 맥락 설명 → 추가 사항", "역할 부여 → 작업 설명 → 맥락 설명 → 결과 형식 → 추가 사항", "작업 설명 → 역할 부여 → 추가 사항 → 결과 형식 → 맥락 설명", "맥락 설명 → 작업 설명 → 역할 부여 → 추가 사항 → 결과 형식"],
+      answer: 1,
+      comment: "역할 → 작업 → 맥락 → 형식 → 추가. 이 순서대로 쓰면 결과물 퀄리티가 확 달라집니다."
+    },
+
+    // LEVEL 3 (21~30)
+    {
+      level: 3,
+      text: "노트북LM(NotebookLM)의 핵심 특징으로 올바른 것은?",
+      type: "mc",
+      options: ["인터넷 전체를 검색해 정보를 제공한다", "사용자가 직접 업로드한 자료(PDF·유튜브·웹사이트 등)를 기반으로만 콘텐츠를 생성한다", "구글 계정 없이도 사용할 수 있다", "오직 텍스트 요약만 가능하다"],
+      answer: 1,
+      comment: "핵심은 '내가 올린 자료 안에서만 답한다'는 것! 인터넷 전체를 뒤지지 않습니다."
+    },
+    {
+      level: 3,
+      text: "노트북LM에서 생성할 수 없는 정보 유형은 무엇인가요?",
+      type: "mc",
+      options: ["오디오 요약", "마인드맵", "플래시카드", "실시간 화상회의"],
+      answer: 3,
+      comment: "오디오·마인드맵·플래시카드·퀴즈·슬라이드·인포그래픽은 되지만, 화상회의는 불가합니다."
+    },
+    {
+      level: 3,
+      text: "완성된 노트북LM 노트북을 팀원에게 공유하는 방법은?",
+      type: "mc",
+      options: ["USB에 저장해서 전달한다", "파일로 내보내어 이메일에 첨부한다", "링크를 생성해서 공유한다", "노트북LM은 공유 기능을 지원하지 않는다"],
+      answer: 2,
+      comment: "링크 하나로 공유 끝! 팀원이나 학생에게 학습 자료를 배포할 때 매우 유용합니다."
+    },
+    {
+      level: 3,
+      text: "구글 AI 스튜디오(Google AI Studio)에 대한 설명으로 올바른 것은?",
+      type: "mc",
+      options: ["유튜브 영상 편집 도구이다", "다양한 제미나이 모델을 무료로 체험하고 프롬프트를 실행해볼 수 있는 AI 실험실이다", "구글 드라이브 파일을 자동으로 분류해 주는 서비스다", "유료 구독자만 접근할 수 있다"],
+      answer: 1,
+      comment: "구글 AI 스튜디오 = AI 실험실. 최신 모델 체험부터 앱 제작까지, 무료로 가능합니다."
+    },
+    {
+      level: 3,
+      text: "구글 AI 스튜디오에서 개발 지식 없이 채팅만으로 앱을 만들 수 있는 메뉴는?",
+      type: "mc",
+      options: ["Playground", "Dashboard", "Build", "Documentation"],
+      answer: 2,
+      comment: "Build 메뉴에서는 코딩 없이 채팅만으로 앱을 만들 수 있습니다."
+    },
+    {
+      level: 3,
+      text: "구글 AI 스튜디오에서 고품질 이미지를 무료로 생성할 때 사용하는 도구 이름은?",
+      type: "mc",
+      options: ["위스크(Whisk)", "플로(Flow)", "이미지FX", "나노 바나나"],
+      answer: 3,
+      comment: "나노 바나나! 이름이 특이하죠? 구글 AI 스튜디오에서 무료로 쓸 수 있는 이미지 생성 도구입니다."
+    },
+    {
+      level: 3,
+      text: "구글 AI 스튜디오에서 텍스트 대본으로 여러 명이 대화하는 음성 파일을 무료로 만들 수 있다. (O/X)",
+      type: "ox",
+      answer: "O",
+      comment: "맞습니다! 유료 구독 없이도 텍스트 대본으로 다화자 음성을 생성할 수 있습니다."
+    },
+    {
+      level: 3,
+      text: "구글 랩스(Google Labs)에서 실제 촬영한 듯한 수준의 영상을 만들어 주는 서비스는?",
+      type: "mc",
+      options: ["이미지FX", "위스크(Whisk)", "플로(Flow)", "스티치(Stitch)"],
+      answer: 2,
+      comment: "플로(Flow)는 구글 랩스의 영상 생성 서비스입니다. 진짜 찍은 것 같은 영상을 만들어줍니다."
+    },
+    {
+      level: 3,
+      text: "구글 랩스에서 텍스트와 이미지를 입력하면 UI 디자인을 자동으로 만들어 주는 서비스는?",
+      type: "mc",
+      options: ["위스크(Whisk)", "이미지FX", "플로(Flow)", "스티치(Stitch)"],
+      answer: 3,
+      comment: "스티치(Stitch)! 디자인 툴 없이도 UI를 뚝딱 만들어주는 구글 랩스의 숨은 기능입니다."
+    },
+    {
+      level: 3,
+      text: "다음 중 제미나이 활용 시 가장 올바른 태도는?",
+      type: "mc",
+      options: ["프롬프트를 짧게 입력할수록 AI가 더 자유롭게 좋은 결과를 낸다", "제미나이의 결과물은 항상 정확하므로 바로 사용해도 된다", "정확도가 중요한 업무일수록 결과물을 직접 검토하고 판단한 뒤 활용해야 한다", "구글 계정 없이도 대화 기록이 자동으로 저장된다"],
+      answer: 2,
+      comment: "AI를 믿되, 맹신은 금물. 이게 진짜 고수의 자세입니다! 특히 중요한 업무일수록 꼭 검토하세요."
+    }
+  ];
+
+  // ── 상태 ─────────────────────────────────────────────────
+  let current = 0;
+  let score = 0;
+  let lvScore = [0, 0, 0];
+  let answered = false;
+
+  // ── 시작 ─────────────────────────────────────────────────
+  function startQuiz() {
+    current = 0; score = 0; lvScore = [0, 0, 0]; answered = false;
+    document.getElementById('intro').style.display = 'none';
+    document.getElementById('quiz').style.display = 'block';
+    renderQuestion();
+  }
+
+  function renderQuestion() {
+    answered = false;
+    const q = questions[current];
+    const total = questions.length;
+
+    // 진행 바
+    document.getElementById('qnum').textContent = `${current + 1} / ${total}`;
+    document.getElementById('score-live').textContent = `${score}점`;
+    document.getElementById('prog-fill').style.width = `${(current / total) * 100}%`;
+
+    // 레벨 태그
+    const tag = document.getElementById('level-tag');
+    const lvNames = ['', '🟢 LEVEL 1 — 기초 개념', '🟡 LEVEL 2 — 핵심 기능', '🔴 LEVEL 3 — 심화 응용'];
+    const lvClasses = ['', 'level-1', 'level-2', 'level-3'];
+    tag.textContent = lvNames[q.level];
+    tag.className = 'level-tag ' + lvClasses[q.level];
+
+    document.getElementById('q-text').textContent = `Q${current + 1}. ${q.text}`;
+
+    const optWrap = document.getElementById('q-options');
+    optWrap.innerHTML = '';
+
+    if (q.type === 'mc') {
+      const nums = ['①', '②', '③', '④'];
+      q.options.forEach((opt, i) => {
+        const btn = document.createElement('button');
+        btn.className = 'option-btn';
+        btn.innerHTML = `<span class="opt-num">${nums[i]}</span><span>${opt}</span>`;
+        btn.onclick = () => selectMC(i, btn);
+        optWrap.appendChild(btn);
+      });
+    } else {
+      // O/X
+      const wrap = document.createElement('div');
+      wrap.className = 'ox-wrap';
+      ['O', 'X'].forEach(v => {
+        const btn = document.createElement('button');
+        btn.className = 'ox-btn';
+        btn.textContent = v;
+        btn.onclick = () => selectOX(v, btn);
+        wrap.appendChild(btn);
+      });
+      optWrap.appendChild(wrap);
+    }
+
+    document.getElementById('feedback').style.display = 'none';
+    document.getElementById('feedback').textContent = '';
+    document.getElementById('btn-next').style.display = 'none';
+  }
+
+  function selectMC(idx, btn) {
+    if (answered) return;
+    answered = true;
+    const q = questions[current];
+    const btns = document.querySelectorAll('.option-btn');
+    btns.forEach(b => b.disabled = true);
+
+    const isCorrect = idx === q.answer;
+    if (isCorrect) { score++; lvScore[q.level - 1]++; }
+
+    btn.classList.add(isCorrect ? 'correct' : 'wrong');
+    if (!isCorrect) btns[q.answer].classList.add('reveal-correct');
+
+    showFeedback(isCorrect, q.comment);
+  }
+
+  function selectOX(val, btn) {
+    if (answered) return;
+    answered = true;
+    const q = questions[current];
+    const btns = document.querySelectorAll('.ox-btn');
+    btns.forEach(b => b.disabled = true);
+
+    const isCorrect = val === q.answer;
+    if (isCorrect) { score++; lvScore[q.level - 1]++; }
+
+    btn.classList.add(isCorrect ? 'correct' : 'wrong');
+    if (!isCorrect) {
+      btns[val === 'O' ? 1 : 0].classList.add('reveal-correct');
+    }
+
+    showFeedback(isCorrect, q.comment);
+  }
+
+  function showFeedback(isCorrect, comment) {
+    const fb = document.getElementById('feedback');
+    fb.className = 'feedback ' + (isCorrect ? 'correct-fb' : 'wrong-fb');
+    fb.textContent = (isCorrect ? '✅ 정답! ' : '❌ 오답! ') + comment;
+    fb.style.display = 'block';
+    document.getElementById('btn-next').style.display = 'block';
+    document.getElementById('btn-next').textContent =
+      current === questions.length - 1 ? '결과 보기 →' : '다음 문제 →';
+  }
+
+  function nextQuestion() {
+    current++;
+    if (current >= questions.length) showResult();
+    else renderQuestion();
+  }
+
+  // ── 결과 ─────────────────────────────────────────────────
+  function showResult() {
+    document.getElementById('quiz').style.display = 'none';
+    document.getElementById('result').style.display = 'block';
+
+    const pct = Math.round((score / 30) * 100);
+    document.getElementById('score-circle').style.setProperty('--pct', pct);
+    document.getElementById('score-num').textContent = score;
+    document.getElementById('lv1-score').textContent = lvScore[0];
+    document.getElementById('lv2-score').textContent = lvScore[1];
+    document.getElementById('lv3-score').textContent = lvScore[2];
+
+    let icon, grade, title, sub;
+    if (score >= 27) {
+      icon = '🏆'; grade = 'GEMINI MASTER'; title = '제미나이 마스터!';
+      sub = '완벽합니다. 진짜로 다 읽으셨군요.';
+    } else if (score >= 21) {
+      icon = '✅'; grade = 'CERTIFIED'; title = '합격! 제미나이 활용가';
+      sub = '70점 이상! 수료 증명서를 발급받을 수 있습니다.';
+    } else if (score >= 15) {
+      icon = '📖'; grade = 'KEEP GOING'; title = '조금만 더!';
+      sub = '아쉽게 불합격. 책을 한 번 더 훑어보고 재도전해 보세요.';
+    } else {
+      icon = '🔄'; grade = 'TRY AGAIN'; title = '처음부터 다시!';
+      sub = '걱정 마세요. 책을 천천히 읽으면 분명 합격할 수 있습니다.';
+    }
+
+    document.getElementById('result-icon').textContent = icon;
+    document.getElementById('result-grade').textContent = grade;
+    document.getElementById('result-title').textContent = title;
+    document.getElementById('result-sub').textContent = sub;
+
+    if (score >= 21) {
+      const certBox = document.getElementById('cert-box');
+      certBox.style.display = 'block';
+      const today = new Date();
+      document.getElementById('cert-date').textContent =
+        `${today.getFullYear()}년 ${today.getMonth()+1}월 ${today.getDate()}일 취득`;
+    }
+  }
+
+  function restartQuiz() {
+    document.getElementById('result').style.display = 'none';
+    document.getElementById('cert-box').style.display = 'none';
+    startQuiz();
+  }
+</script>
+</body>
+</html>
