@@ -475,10 +475,7 @@
     .cert-name {
       font-size: 28px;
       font-weight: 800;
-      background: linear-gradient(135deg, #fff 0%, #d4e4ff 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+      color: #ffffff;
       margin-bottom: 20px;
       letter-spacing: -0.01em;
     }
@@ -551,7 +548,7 @@
       body > *:not(#result) { display: none !important; }
       #result { display: block !important; padding: 0; }
       .cert-wrap { max-width: 100%; }
-      .cert-print-btn, .btn-retry, .result-icon, .result-grade,
+      .cert-btn-row, .cert-print-btn, .btn-retry, .result-icon, .result-grade,
       .result-title, .result-sub, .score-circle, .level-breakdown { display: none !important; }
     }
 
@@ -699,7 +696,7 @@
         </div>
         <div class="cert-seal">🏆</div>
         <div class="cert-date">이지스퍼블리싱 · AI 활용 전문 강사 권서림</div>
-        <div style="display:flex; gap:10px; justify-content:center; margin-top:16px; flex-wrap:wrap;">
+        <div class="cert-btn-row" style="display:flex; gap:10px; justify-content:center; margin-top:16px; flex-wrap:wrap;">
           <button class="cert-print-btn" onclick="window.print()">🖨️ 인쇄하기</button>
           <button class="cert-print-btn cert-pdf-btn" onclick="downloadCertPDF()">⬇️ PDF 저장하기</button>
         </div>
@@ -1168,6 +1165,10 @@
     btn.textContent = '⏳ 생성 중...';
     btn.disabled = true;
 
+    // 버튼 영역 숨기기
+    const btnRow = document.querySelector('.cert-btn-row');
+    btnRow.style.display = 'none';
+
     try {
       const el = document.getElementById('cert-box');
       const canvas = await html2canvas(el, {
@@ -1197,6 +1198,8 @@
     } catch(e) {
       alert('PDF 생성 중 오류가 발생했습니다.');
     } finally {
+      const btnRow = document.querySelector('.cert-btn-row');
+      btnRow.style.display = '';
       btn.textContent = originalText;
       btn.disabled = false;
     }
