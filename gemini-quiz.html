@@ -587,6 +587,120 @@
     }
     .btn-retry:hover { border-color: #4f8cff88; }
 
+    /* ── 레벨 결과 화면 ── */
+    #level-result {
+      display: none;
+      padding: 40px 20px;
+      max-width: 600px;
+      margin: 0 auto;
+      text-align: center;
+    }
+
+    .lvr-badge-wrap {
+      margin: 0 auto 28px;
+    }
+    .lvr-badge-icon {
+      font-size: 80px;
+      line-height: 1;
+      animation: badgePop 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+    }
+    @keyframes badgePop {
+      0%   { transform: scale(0.4) rotate(-15deg); opacity: 0; }
+      70%  { transform: scale(1.15) rotate(5deg); }
+      100% { transform: scale(1) rotate(0deg); opacity: 1; }
+    }
+
+    .lvr-badge-label {
+      display: inline-block;
+      margin-top: 12px;
+      padding: 6px 20px;
+      border-radius: 100px;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+    }
+    .lvr-badge-label.lv1 { background: #1DB95422; color: #1DB954; border: 1px solid #1DB95444; }
+    .lvr-badge-label.lv2 { background: #F5A62322; color: #F5A623; border: 1px solid #F5A62344; }
+    .lvr-badge-label.lv3 { background: #E8434322; color: #E84343; border: 1px solid #E8434344; }
+    .lvr-badge-label.fail { background: #44444422; color: #888; border: 1px solid #44444444; }
+
+    .lvr-title {
+      font-size: 26px;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 8px;
+    }
+    .lvr-sub {
+      font-size: 15px;
+      color: var(--muted);
+      margin-bottom: 28px;
+      line-height: 1.6;
+    }
+
+    .lvr-score-box {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 20px 28px;
+      display: inline-block;
+      margin-bottom: 32px;
+    }
+    .lvr-score-big {
+      font-size: 48px;
+      font-weight: 800;
+      color: #fff;
+      line-height: 1;
+    }
+    .lvr-score-big span { font-size: 18px; color: var(--muted); }
+    .lvr-score-sub { font-size: 13px; color: var(--muted); margin-top: 6px; }
+
+    .lvr-btn-row {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .lvr-btn-next {
+      background: linear-gradient(135deg, #4f8cff, #9b59b6);
+      color: #fff;
+      border: none;
+      border-radius: 14px;
+      padding: 16px 40px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .lvr-btn-next:hover { opacity: 0.88; }
+    .lvr-btn-retry {
+      background: var(--card);
+      border: 1.5px solid var(--border);
+      color: var(--text);
+      border-radius: 14px;
+      padding: 16px 32px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .lvr-btn-retry:hover { border-color: #4f8cff88; }
+
+    /* 인증서 배지 행 */
+    .cert-badges-row {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin-bottom: 14px;
+    }
+    .cert-badge-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+    }
+    .cert-badge-icon { font-size: 20px; }
+    .cert-badge-name { font-size: 8px; color: #8888aa; letter-spacing: 0.04em; }
+
     @media (max-width: 500px) {
       .q-card { padding: 20px 16px; }
       .q-text { font-size: 15px; }
@@ -649,6 +763,21 @@
       <button class="btn-next" id="btn-next" onclick="nextQuestion()">다음 문제 →</button>
     </div>
   </div>
+</div>
+
+<!-- ───────────── 레벨 결과 ───────────── -->
+<div id="level-result">
+  <div class="lvr-badge-wrap">
+    <div class="lvr-badge-icon" id="lvr-badge-icon">🏅</div>
+    <div class="lvr-badge-label" id="lvr-badge-label">배지 획득!</div>
+  </div>
+  <div class="lvr-title" id="lvr-title">레벨 클리어!</div>
+  <div class="lvr-sub" id="lvr-sub"></div>
+  <div class="lvr-score-box">
+    <div class="lvr-score-big"><span id="lvr-score">0</span> <span>/ 10</span></div>
+    <div class="lvr-score-sub" id="lvr-score-sub">합격 기준: 7점 이상</div>
+  </div>
+  <div class="lvr-btn-row" id="lvr-btn-row"></div>
 </div>
 
 <!-- ───────────── 결과 ───────────── -->
@@ -728,6 +857,7 @@
               <div class="val" id="cert-date" style="font-size:12px">—</div>
             </div>
           </div>
+          <div class="cert-badges-row" id="cert-badges-row"></div>
           <div class="cert-seal">🏆</div>
           <div class="cert-issuer">이지스퍼블리싱 · AI 활용 전문 강사 권서림</div>
         </div>
@@ -994,8 +1124,20 @@
 
   // ── 상태 ─────────────────────────────────────────────────
   let current = 0;
+  let currentLevel = 1;
   // userAnswers[i] = null(미답) | { selected, isCorrect }
   let userAnswers = [];
+  // earnedBadges[lv] = true/false (lv = 1,2,3)
+  let earnedBadges = {};
+
+  const LEVEL_RANGES = { 1: [0, 9], 2: [10, 19], 3: [20, 29] };
+  const PASS_THRESHOLD = 7;
+
+  const BADGE_META = {
+    1: { icon: '🌱', label: '기초 입문 배지', cls: 'lv1', name: 'LEVEL 1' },
+    2: { icon: '⚡', label: '기능 활용 배지', cls: 'lv2', name: 'LEVEL 2' },
+    3: { icon: '🔥', label: '마스터 배지',    cls: 'lv3', name: 'LEVEL 3' }
+  };
 
   function calcScore() {
     let s = 0, lv = [0, 0, 0];
@@ -1005,28 +1147,41 @@
     return { score: s, lvScore: lv };
   }
 
+  function getLevelScore(lv) {
+    const [start, end] = LEVEL_RANGES[lv];
+    let s = 0;
+    for (let i = start; i <= end; i++) {
+      if (userAnswers[i] && userAnswers[i].isCorrect) s++;
+    }
+    return s;
+  }
+
   // ── 시작 ─────────────────────────────────────────────────
   function startQuiz() {
     current = 0;
+    currentLevel = 1;
     userAnswers = new Array(questions.length).fill(null);
+    earnedBadges = {};
     document.getElementById('intro').style.display = 'none';
     document.getElementById('quiz').style.display = 'block';
     renderQuestion();
   }
-  
+
   function getUserName() {
     return document.getElementById('user-name').value.trim() || '응시자';
   }
 
   function renderQuestion() {
     const q = questions[current];
-    const total = questions.length;
-    const { score } = calcScore();
+    const [lvStart, lvEnd] = LEVEL_RANGES[currentLevel];
+    const lvPos = current - lvStart + 1;
+    const lvTotal = lvEnd - lvStart + 1;
+    const lvScore = getLevelScore(currentLevel);
 
-    // 진행 바
-    document.getElementById('qnum').textContent = `${current + 1} / ${total}`;
-    document.getElementById('score-live').textContent = `${score}점`;
-    document.getElementById('prog-fill').style.width = `${(current / total) * 100}%`;
+    // 진행 바 (레벨 내 기준)
+    document.getElementById('qnum').textContent = `레벨 ${currentLevel} · ${lvPos} / ${lvTotal}`;
+    document.getElementById('score-live').textContent = `${lvScore}점`;
+    document.getElementById('prog-fill').style.width = `${((lvPos - 1) / lvTotal) * 100}%`;
 
     // 레벨 태그
     const tag = document.getElementById('level-tag');
@@ -1035,7 +1190,7 @@
     tag.textContent = lvNames[q.level];
     tag.className = 'level-tag ' + lvClasses[q.level];
 
-    document.getElementById('q-text').textContent = `Q${current + 1}. ${q.text}`;
+    document.getElementById('q-text').textContent = `Q${lvPos}. ${q.text}`;
 
     const optWrap = document.getElementById('q-options');
     optWrap.innerHTML = '';
@@ -1051,7 +1206,6 @@
         btn.onclick = () => selectMC(i, btn);
         optWrap.appendChild(btn);
       });
-      // 이전에 답한 문제라면 상태 복원
       if (saved !== null) {
         const btns = optWrap.querySelectorAll('.option-btn');
         btns.forEach(b => b.disabled = true);
@@ -1070,7 +1224,6 @@
         wrap.appendChild(btn);
       });
       optWrap.appendChild(wrap);
-      // 이전에 답한 문제라면 상태 복원
       if (saved !== null) {
         const btns = wrap.querySelectorAll('.ox-btn');
         btns.forEach(b => b.disabled = true);
@@ -1083,17 +1236,16 @@
       }
     }
 
-    // 피드백 초기화 (미답 문제)
     if (saved === null) {
       document.getElementById('feedback').style.display = 'none';
       document.getElementById('feedback').textContent = '';
     }
 
-    // 이전/다음 버튼 항상 표시
-    document.getElementById('btn-prev').style.display = current > 0 ? 'block' : 'none';
+    // 이전/다음 버튼
+    document.getElementById('btn-prev').style.display = current > lvStart ? 'block' : 'none';
     const nextBtn = document.getElementById('btn-next');
     nextBtn.style.display = 'block';
-    nextBtn.textContent = current === questions.length - 1 ? '결과 보기 →' : '다음 문제 →';
+    nextBtn.textContent = current === lvEnd ? (currentLevel === 3 ? '최종 결과 보기 →' : '레벨 완료! →') : '다음 문제 →';
   }
 
   function selectMC(idx, btn) {
@@ -1101,13 +1253,10 @@
     const q = questions[current];
     const btns = document.querySelectorAll('.option-btn');
     btns.forEach(b => b.disabled = true);
-
     const isCorrect = idx === q.answer;
     userAnswers[current] = { selected: idx, isCorrect };
-
     btn.classList.add(isCorrect ? 'correct' : 'wrong');
     if (!isCorrect) btns[q.answer].classList.add('reveal-correct');
-
     showFeedback(isCorrect, q.comment, true);
   }
 
@@ -1116,15 +1265,12 @@
     const q = questions[current];
     const btns = document.querySelectorAll('.ox-btn');
     btns.forEach(b => b.disabled = true);
-
     const isCorrect = val === q.answer;
     userAnswers[current] = { selected: val, isCorrect };
-
     btn.classList.add(isCorrect ? 'correct' : 'wrong');
     if (!isCorrect) {
       (val === 'O' ? btns[1] : btns[0]).classList.add('reveal-correct');
     }
-
     showFeedback(isCorrect, q.comment, true);
   }
 
@@ -1133,26 +1279,98 @@
     fb.className = 'feedback ' + (isCorrect ? 'correct-fb' : 'wrong-fb');
     fb.textContent = (isCorrect ? '✅ 정답! ' : '❌ 오답! ') + comment;
     fb.style.display = 'block';
-
     if (updateScore) {
-      const { score } = calcScore();
-      document.getElementById('score-live').textContent = `${score}점`;
+      document.getElementById('score-live').textContent = `${getLevelScore(currentLevel)}점`;
     }
   }
 
   function nextQuestion() {
-    current++;
-    if (current >= questions.length) showResult();
-    else renderQuestion();
+    const [, lvEnd] = LEVEL_RANGES[currentLevel];
+    if (current < lvEnd) {
+      current++;
+      renderQuestion();
+    } else {
+      showLevelResult(currentLevel);
+    }
   }
 
   function prevQuestion() {
-    if (current > 0) { current--; renderQuestion(); }
+    const [lvStart] = LEVEL_RANGES[currentLevel];
+    if (current > lvStart) { current--; renderQuestion(); }
   }
 
-  // ── 결과 ─────────────────────────────────────────────────
-  function showResult() {
+  // ── 레벨 결과 ─────────────────────────────────────────────
+  function showLevelResult(lv) {
     document.getElementById('quiz').style.display = 'none';
+    document.getElementById('level-result').style.display = 'block';
+
+    const lvScore = getLevelScore(lv);
+    const passed = lvScore >= PASS_THRESHOLD;
+    earnedBadges[lv] = passed;
+
+    const meta = BADGE_META[lv];
+    const iconEl = document.getElementById('lvr-badge-icon');
+    const labelEl = document.getElementById('lvr-badge-label');
+
+    iconEl.textContent = passed ? meta.icon : '💪';
+    labelEl.textContent = passed ? meta.label + ' 획득!' : '아쉬워요!';
+    labelEl.className = 'lvr-badge-label ' + (passed ? meta.cls : 'fail');
+
+    document.getElementById('lvr-score').textContent = lvScore;
+    document.getElementById('lvr-score-sub').textContent = `합격 기준: ${PASS_THRESHOLD}점 이상`;
+
+    const lvNames = ['', 'LEVEL 1 — 기초 개념', 'LEVEL 2 — 핵심 기능', 'LEVEL 3 — 심화 응용'];
+    document.getElementById('lvr-title').textContent = passed
+      ? (lv === 3 ? '🎉 모든 레벨 클리어!' : `🎉 ${lvNames[lv]} 클리어!`)
+      : `😅 ${lvNames[lv]} 미통과`;
+    document.getElementById('lvr-sub').textContent = passed
+      ? (lv === 3 ? '축하합니다! 제미나이 마스터 인증서를 발급받을 수 있습니다.' : `훌륭해요! 다음 레벨로 도전하세요.`)
+      : `7점 이상이어야 다음 레벨로 진행할 수 있어요. 다시 도전해 보세요!`;
+
+    const btnRow = document.getElementById('lvr-btn-row');
+    btnRow.innerHTML = '';
+
+    if (!passed) {
+      const retryBtn = document.createElement('button');
+      retryBtn.className = 'lvr-btn-retry';
+      retryBtn.textContent = '🔄 다시 도전하기';
+      retryBtn.onclick = () => retryLevel(lv);
+      btnRow.appendChild(retryBtn);
+    } else if (lv < 3) {
+      const nextBtn = document.createElement('button');
+      nextBtn.className = 'lvr-btn-next';
+      nextBtn.textContent = `LEVEL ${lv + 1} 도전하기 →`;
+      nextBtn.onclick = () => startNextLevel(lv + 1);
+      btnRow.appendChild(nextBtn);
+    } else {
+      const finBtn = document.createElement('button');
+      finBtn.className = 'lvr-btn-next';
+      finBtn.textContent = '최종 인증서 받기 →';
+      finBtn.onclick = () => showResult();
+      btnRow.appendChild(finBtn);
+    }
+  }
+
+  function retryLevel(lv) {
+    const [start, end] = LEVEL_RANGES[lv];
+    for (let i = start; i <= end; i++) userAnswers[i] = null;
+    current = start;
+    document.getElementById('level-result').style.display = 'none';
+    document.getElementById('quiz').style.display = 'block';
+    renderQuestion();
+  }
+
+  function startNextLevel(lv) {
+    currentLevel = lv;
+    current = LEVEL_RANGES[lv][0];
+    document.getElementById('level-result').style.display = 'none';
+    document.getElementById('quiz').style.display = 'block';
+    renderQuestion();
+  }
+
+  // ── 최종 결과 ─────────────────────────────────────────────
+  function showResult() {
+    document.getElementById('level-result').style.display = 'none';
     document.getElementById('result').style.display = 'block';
 
     const { score, lvScore } = calcScore();
@@ -1163,19 +1381,18 @@
     document.getElementById('lv2-score').textContent = lvScore[1];
     document.getElementById('lv3-score').textContent = lvScore[2];
 
+    const allPassed = earnedBadges[1] && earnedBadges[2] && earnedBadges[3];
+
     let icon, grade, title, sub;
-    if (score >= 27) {
+    if (allPassed && score >= 27) {
       icon = '🏆'; grade = 'GEMINI MASTER'; title = '제미나이 마스터!';
-      sub = '완벽합니다. 진짜로 다 읽으셨군요.';
-    } else if (score >= 21) {
-      icon = '✅'; grade = 'CERTIFIED'; title = '합격! 제미나이 활용가';
-      sub = '70점 이상! 수료 증명서를 발급받을 수 있습니다.';
-    } else if (score >= 15) {
-      icon = '📖'; grade = 'KEEP GOING'; title = '조금만 더!';
-      sub = '아쉽게 불합격. 책을 한 번 더 훑어보고 재도전해 보세요.';
+      sub = '3개 배지 + 만점에 가까운 점수! 진짜 마스터입니다.';
+    } else if (allPassed) {
+      icon = '✅'; grade = 'CERTIFIED'; title = '3단계 모두 합격!';
+      sub = '3개 배지를 모두 획득했습니다. 인증서를 발급받으세요!';
     } else {
-      icon = '🔄'; grade = 'TRY AGAIN'; title = '처음부터 다시!';
-      sub = '걱정 마세요. 책을 천천히 읽으면 분명 합격할 수 있습니다.';
+      icon = '📖'; grade = 'KEEP GOING'; title = '아직 도전 중!';
+      sub = '모든 레벨을 통과해야 인증서를 받을 수 있습니다. 포기하지 마세요!';
     }
 
     document.getElementById('result-icon').textContent = icon;
@@ -1183,7 +1400,7 @@
     document.getElementById('result-title').textContent = title;
     document.getElementById('result-sub').textContent = sub;
 
-    if (score >= 21) {
+    if (allPassed) {
       document.getElementById('cert-box').style.display = 'block';
       const today = new Date();
       const dateStr = `${today.getFullYear()}.${String(today.getMonth()+1).padStart(2,'0')}.${String(today.getDate()).padStart(2,'0')}`;
@@ -1192,6 +1409,20 @@
       document.getElementById('cert-score-val').textContent = score + ' / 30';
       document.getElementById('cert-grade-val').textContent = gradeStr;
       document.getElementById('cert-date').textContent = dateStr;
+
+      // 배지 행 렌더링
+      const badgeRow = document.getElementById('cert-badges-row');
+      badgeRow.innerHTML = '';
+      [1, 2, 3].forEach(lv => {
+        if (earnedBadges[lv]) {
+          const meta = BADGE_META[lv];
+          badgeRow.innerHTML += `
+            <div class="cert-badge-item">
+              <div class="cert-badge-icon">${meta.icon}</div>
+              <div class="cert-badge-name">${meta.label}</div>
+            </div>`;
+        }
+      });
     }
   }
 
@@ -1243,7 +1474,9 @@
 
   function restartQuiz() {
     document.getElementById('result').style.display = 'none';
+    document.getElementById('level-result').style.display = 'none';
     document.getElementById('cert-box').style.display = 'none';
+    earnedBadges = {};
     document.getElementById('intro').style.display = 'flex';
   }
 </script>
