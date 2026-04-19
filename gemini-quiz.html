@@ -1335,7 +1335,7 @@
       const el = document.getElementById('combo-live');
       el.textContent = `🔥 ${combo} COMBO`;
       el.classList.remove('hidden');
-      if (combo >= 2) showComboToast(combo);
+      if ([3,5,10,15,20,25,30].includes(combo)) showComboToast(combo);
     } else {
       combo = 0;
       document.getElementById('combo-live').classList.add('hidden');
@@ -1344,17 +1344,15 @@
 
   function showComboToast(n) {
     const msgs = {
-      2: '2 COMBO! 👏',
-      3: '3 COMBO! 🔥',
-      4: '4 COMBO! 💥',
-      5: '5 COMBO!! ⚡',
-      6: '6 COMBO!! 🌟',
-      7: '7 COMBO!!! 🚀',
-      8: '8 COMBO!!! 💎',
-      9: '9 COMBO!!! 👑',
-      10: '퍼펙트 10!! 🏆'
+      3:  '3 COMBO! 🔥',
+      5:  '5 COMBO!! ⚡',
+      10: '10 COMBO!!! 💥',
+      15: '15 COMBO!!! 🚀',
+      20: '20 COMBO!!!! 👑',
+      25: '25 COMBO!!!! 💎',
+      30: '퍼펙트 30!!! 🏆'
     };
-    const msg = msgs[n] || `${n} COMBO!!! 🔥`;
+    const msg = msgs[n] || `${n} COMBO! 🔥`;
     const toast = document.getElementById('combo-toast');
     toast.textContent = msg;
     toast.classList.remove('show');
