@@ -1570,10 +1570,13 @@
       const { jsPDF } = window.jspdf;
       const imgData = canvas.toDataURL('image/jpeg', 0.95);
 
-      // A4 가로 기준으로 맞추기
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
       const pageW = pdf.internal.pageSize.getWidth();
       const pageH = pdf.internal.pageSize.getHeight();
+
+      // 배경을 인증서 배경색으로 채워 흰 여백 제거
+      pdf.setFillColor(13, 13, 32);
+      pdf.rect(0, 0, pageW, pageH, 'F');
 
       const imgW = pageW - 24;
       const imgH = (canvas.height * imgW) / canvas.width;
