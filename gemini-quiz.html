@@ -685,6 +685,77 @@
     }
     .lvr-btn-retry:hover { border-color: #4f8cff88; }
 
+    /* 인증서 표지 */
+    .cert-cover-img {
+      width: 52px;
+      border-radius: 6px;
+      box-shadow: 0 4px 20px #0009;
+      display: block;
+      margin: 10px auto 8px;
+    }
+
+    /* 콤보 토스트 */
+    .combo-toast {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.6);
+      background: linear-gradient(135deg, #f5a623, #e84343);
+      color: #fff;
+      font-size: 22px;
+      font-weight: 900;
+      padding: 14px 30px;
+      border-radius: 50px;
+      pointer-events: none;
+      opacity: 0;
+      z-index: 999;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+      transition: none;
+      box-shadow: 0 8px 40px #e8434355;
+    }
+    .combo-toast.show {
+      animation: comboPop 1.4s cubic-bezier(0.2, 0.8, 0.3, 1) forwards;
+    }
+    @keyframes comboPop {
+      0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+      15%  { opacity: 1; transform: translate(-50%, -50%) scale(1.12); }
+      30%  { transform: translate(-50%, -50%) scale(1); }
+      70%  { opacity: 1; transform: translate(-50%, -60%); }
+      100% { opacity: 0; transform: translate(-50%, -75%); }
+    }
+
+    /* 콤보 라이브 */
+    .combo-live {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--yellow);
+      background: #F5A62318;
+      border: 1px solid #F5A62333;
+      border-radius: 100px;
+      padding: 3px 10px;
+      transition: all 0.2s;
+    }
+    .combo-live.hidden { opacity: 0; }
+
+    /* 최고 콤보 칩 (결과) */
+    .max-combo-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: linear-gradient(135deg, #f5a62322, #e8434318);
+      border: 1px solid #f5a62344;
+      border-radius: 14px;
+      padding: 10px 20px;
+      font-size: 14px;
+      font-weight: 700;
+      color: #F5A623;
+      margin-bottom: 24px;
+    }
+
     /* 인증서 배지 행 */
     .cert-badges-row {
       display: flex;
@@ -745,6 +816,7 @@
   <div class="progress-wrap">
     <div class="progress-meta">
       <span class="qnum" id="qnum">1 / 30</span>
+      <span class="combo-live hidden" id="combo-live">🔥 0 COMBO</span>
       <span id="score-live">0점</span>
     </div>
     <div class="progress-bar-bg">
@@ -764,6 +836,8 @@
     </div>
   </div>
 </div>
+
+<div id="combo-toast" class="combo-toast"></div>
 
 <!-- ───────────── 레벨 결과 ───────────── -->
 <div id="level-result">
@@ -786,6 +860,7 @@
   <div class="result-grade" id="result-grade">GEMINI MASTER</div>
   <div class="result-title" id="result-title">제미나이 마스터!</div>
   <div class="result-sub" id="result-sub">완벽합니다. 진짜로 다 읽으셨군요.</div>
+  <div class="max-combo-chip" id="max-combo-chip" style="display:none">🔥 최고 콤보 <span id="max-combo-val">0</span> 연속!</div>
 
   <div class="score-circle" id="score-circle">
     <div class="score-inner">
@@ -824,6 +899,7 @@
         <!-- 상단 -->
         <div class="cert-top">
           <div class="cert-top-badge">CERTIFICATE OF COMPLETION</div>
+          <img id="cert-cover-img" class="cert-cover-img" src="" alt="book cover">
           <div class="cert-title-kr">제미나이 활용 능력 인증서</div>
           <div class="cert-book">된다! 하루 만에 끝내는 제미나이 활용법</div>
         </div>
@@ -1132,6 +1208,8 @@
 
   const LEVEL_RANGES = { 1: [0, 9], 2: [10, 19], 3: [20, 29] };
   const PASS_THRESHOLD = 7;
+  let combo = 0;
+  let maxCombo = 0;
 
   const BADGE_META = {
     1: { icon: '🌱', label: '기초 입문 배지', cls: 'lv1', name: 'LEVEL 1' },
@@ -1162,6 +1240,8 @@
     currentLevel = 1;
     userAnswers = new Array(questions.length).fill(null);
     earnedBadges = {};
+    combo = 0;
+    maxCombo = 0;
     document.getElementById('intro').style.display = 'none';
     document.getElementById('quiz').style.display = 'block';
     renderQuestion();
@@ -1248,6 +1328,40 @@
     nextBtn.textContent = current === lvEnd ? (currentLevel === 3 ? '최종 결과 보기 →' : '레벨 완료! →') : '다음 문제 →';
   }
 
+  function updateCombo(isCorrect) {
+    if (isCorrect) {
+      combo++;
+      if (combo > maxCombo) maxCombo = combo;
+      const el = document.getElementById('combo-live');
+      el.textContent = `🔥 ${combo} COMBO`;
+      el.classList.remove('hidden');
+      if (combo >= 2) showComboToast(combo);
+    } else {
+      combo = 0;
+      document.getElementById('combo-live').classList.add('hidden');
+    }
+  }
+
+  function showComboToast(n) {
+    const msgs = {
+      2: '2 COMBO! 👏',
+      3: '3 COMBO! 🔥',
+      4: '4 COMBO! 💥',
+      5: '5 COMBO!! ⚡',
+      6: '6 COMBO!! 🌟',
+      7: '7 COMBO!!! 🚀',
+      8: '8 COMBO!!! 💎',
+      9: '9 COMBO!!! 👑',
+      10: '퍼펙트 10!! 🏆'
+    };
+    const msg = msgs[n] || `${n} COMBO!!! 🔥`;
+    const toast = document.getElementById('combo-toast');
+    toast.textContent = msg;
+    toast.classList.remove('show');
+    void toast.offsetWidth;
+    toast.classList.add('show');
+  }
+
   function selectMC(idx, btn) {
     if (userAnswers[current] !== null) return;
     const q = questions[current];
@@ -1257,6 +1371,7 @@
     userAnswers[current] = { selected: idx, isCorrect };
     btn.classList.add(isCorrect ? 'correct' : 'wrong');
     if (!isCorrect) btns[q.answer].classList.add('reveal-correct');
+    updateCombo(isCorrect);
     showFeedback(isCorrect, q.comment, true);
   }
 
@@ -1271,6 +1386,7 @@
     if (!isCorrect) {
       (val === 'O' ? btns[1] : btns[0]).classList.add('reveal-correct');
     }
+    updateCombo(isCorrect);
     showFeedback(isCorrect, q.comment, true);
   }
 
@@ -1354,6 +1470,8 @@
   function retryLevel(lv) {
     const [start, end] = LEVEL_RANGES[lv];
     for (let i = start; i <= end; i++) userAnswers[i] = null;
+    combo = 0;
+    document.getElementById('combo-live').classList.add('hidden');
     current = start;
     document.getElementById('level-result').style.display = 'none';
     document.getElementById('quiz').style.display = 'block';
@@ -1400,6 +1518,11 @@
     document.getElementById('result-title').textContent = title;
     document.getElementById('result-sub').textContent = sub;
 
+    if (maxCombo >= 2) {
+      document.getElementById('max-combo-chip').style.display = 'inline-flex';
+      document.getElementById('max-combo-val').textContent = maxCombo;
+    }
+
     if (allPassed) {
       document.getElementById('cert-box').style.display = 'block';
       const today = new Date();
@@ -1409,6 +1532,7 @@
       document.getElementById('cert-score-val').textContent = score + ' / 30';
       document.getElementById('cert-grade-val').textContent = gradeStr;
       document.getElementById('cert-date').textContent = dateStr;
+      document.getElementById('cert-cover-img').src = document.querySelector('.cover-img').src;
 
       // 배지 행 렌더링
       const badgeRow = document.getElementById('cert-badges-row');
@@ -1477,6 +1601,9 @@
     document.getElementById('level-result').style.display = 'none';
     document.getElementById('cert-box').style.display = 'none';
     earnedBadges = {};
+    combo = 0;
+    maxCombo = 0;
+    document.getElementById('max-combo-chip').style.display = 'none';
     document.getElementById('intro').style.display = 'flex';
   }
 </script>
