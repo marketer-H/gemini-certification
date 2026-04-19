@@ -380,148 +380,174 @@
     /* ── 인증서 ── */
     .cert-wrap {
       width: 100%;
-      max-width: 560px;
+      max-width: 600px;
       margin: 0 auto 28px;
     }
 
+    /* A4 비율 (1 : 1.414) */
     .cert-box {
+      width: 100%;
+      aspect-ratio: 1 / 1.414;
       background: linear-gradient(160deg, #0d0d20 0%, #12122a 50%, #0a0a18 100%);
-      border: 2px solid transparent;
-      border-radius: 20px;
-      padding: 40px 36px 32px;
+      border-radius: 6px;
       position: relative;
       overflow: hidden;
-      background-clip: padding-box;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
-    /* 골드 그라디언트 테두리 */
+    /* 골드 외곽 테두리 */
     .cert-box::before {
       content: '';
       position: absolute;
-      inset: -2px;
-      border-radius: 22px;
-      background: linear-gradient(135deg, #f5d06044, #fff8e155, #f5d06044, #ffe08a33);
-      z-index: 0;
+      inset: 0;
+      border: 2px solid transparent;
+      border-radius: 6px;
+      background: linear-gradient(#0d0d20, #0d0d20) padding-box,
+                  linear-gradient(135deg, #f5d060aa, #ffe08a33, #f5d060aa) border-box;
     }
-    .cert-box::after {
-      content: '';
+
+    /* 안쪽 장식 테두리 */
+    .cert-box-inner-border {
       position: absolute;
-      inset: 2px;
-      border-radius: 18px;
-      background: linear-gradient(160deg, #0d0d20, #12122a, #0a0a18);
-      z-index: 0;
+      inset: 12px;
+      border: 1px solid #f5d06033;
+      border-radius: 3px;
+      pointer-events: none;
+      z-index: 1;
     }
 
     .cert-inner {
       position: relative;
-      z-index: 1;
+      z-index: 2;
       text-align: center;
+      padding: 5% 8%;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      height: 100%;
     }
 
     /* 모서리 장식 */
     .cert-corner {
       position: absolute;
-      width: 36px;
-      height: 36px;
-      z-index: 2;
-      opacity: 0.5;
+      width: 28px;
+      height: 28px;
+      z-index: 3;
     }
-    .cert-corner.tl { top: 12px; left: 12px; border-top: 2px solid #f5d060; border-left: 2px solid #f5d060; border-radius: 4px 0 0 0; }
-    .cert-corner.tr { top: 12px; right: 12px; border-top: 2px solid #f5d060; border-right: 2px solid #f5d060; border-radius: 0 4px 0 0; }
-    .cert-corner.bl { bottom: 12px; left: 12px; border-bottom: 2px solid #f5d060; border-left: 2px solid #f5d060; border-radius: 0 0 0 4px; }
-    .cert-corner.br { bottom: 12px; right: 12px; border-bottom: 2px solid #f5d060; border-right: 2px solid #f5d060; border-radius: 0 0 4px 0; }
+    .cert-corner.tl { top: 20px; left: 20px; border-top: 1.5px solid #f5d060bb; border-left: 1.5px solid #f5d060bb; }
+    .cert-corner.tr { top: 20px; right: 20px; border-top: 1.5px solid #f5d060bb; border-right: 1.5px solid #f5d060bb; }
+    .cert-corner.bl { bottom: 20px; left: 20px; border-bottom: 1.5px solid #f5d060bb; border-left: 1.5px solid #f5d060bb; }
+    .cert-corner.br { bottom: 20px; right: 20px; border-bottom: 1.5px solid #f5d060bb; border-right: 1.5px solid #f5d060bb; }
+
+    /* 상단 영역 */
+    .cert-top { width: 100%; }
 
     .cert-top-badge {
       display: inline-block;
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 800;
-      letter-spacing: 0.2em;
+      letter-spacing: 0.22em;
       color: #f5d060;
-      border: 1px solid #f5d06044;
+      border: 1px solid #f5d06055;
       border-radius: 100px;
-      padding: 4px 14px;
-      margin-bottom: 18px;
-      text-transform: uppercase;
+      padding: 4px 16px;
+      margin-bottom: 14px;
     }
 
     .cert-title-kr {
-      font-size: 22px;
+      font-size: clamp(18px, 3.5vw, 26px);
       font-weight: 800;
       color: #fff;
-      margin-bottom: 6px;
+      margin-bottom: 5px;
       letter-spacing: -0.02em;
     }
 
     .cert-book {
-      font-size: 12px;
-      color: #8888aa;
-      margin-bottom: 24px;
-      letter-spacing: 0.03em;
+      font-size: 11px;
+      color: #6666aa;
+      letter-spacing: 0.04em;
     }
+
+    /* 중앙 영역 */
+    .cert-mid { width: 100%; }
 
     .cert-divider {
       height: 1px;
-      background: linear-gradient(90deg, transparent, #f5d06033, #f5d060aa, #f5d06033, transparent);
-      margin: 0 auto 24px;
+      background: linear-gradient(90deg, transparent, #f5d06066, transparent);
+      margin: 0 auto 18px;
     }
 
     .cert-to {
-      font-size: 12px;
+      font-size: 11px;
       color: #8888aa;
-      letter-spacing: 0.1em;
-      margin-bottom: 8px;
+      letter-spacing: 0.14em;
+      margin-bottom: 6px;
     }
 
     .cert-name {
-      font-size: 28px;
+      font-size: clamp(22px, 4vw, 32px);
       font-weight: 800;
       color: #ffffff;
-      margin-bottom: 20px;
+      margin-bottom: 6px;
       letter-spacing: -0.01em;
     }
 
+    .cert-name-line {
+      width: 160px;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, #ffffff44, transparent);
+      margin: 0 auto 18px;
+    }
+
     .cert-desc {
-      font-size: 13px;
+      font-size: clamp(11px, 1.6vw, 13px);
       color: #a0a0c0;
-      line-height: 1.8;
-      margin-bottom: 24px;
+      line-height: 2;
       word-break: keep-all;
     }
+
+    /* 하단 영역 */
+    .cert-bottom { width: 100%; }
 
     .cert-score-row {
       display: flex;
       justify-content: center;
-      gap: 20px;
-      margin-bottom: 24px;
+      gap: 14px;
+      margin-bottom: 18px;
     }
     .cert-score-chip {
-      background: #ffffff0a;
-      border: 1px solid #ffffff18;
-      border-radius: 12px;
-      padding: 10px 20px;
+      background: #ffffff08;
+      border: 1px solid #ffffff14;
+      border-radius: 8px;
+      padding: 8px 16px;
+      min-width: 80px;
     }
-    .cert-score-chip .lbl { font-size: 11px; color: #8888aa; margin-bottom: 3px; }
-    .cert-score-chip .val { font-size: 18px; font-weight: 800; color: #fff; }
+    .cert-score-chip .lbl { font-size: 9px; color: #8888aa; margin-bottom: 3px; letter-spacing: 0.06em; }
+    .cert-score-chip .val { font-size: 15px; font-weight: 800; color: #fff; }
 
     .cert-seal {
-      width: 60px;
-      height: 60px;
-      background: linear-gradient(135deg, #4f8cff22, #9b59b622);
-      border: 2px solid #4f8cff44;
-      border-radius: 50%;
+      font-size: 28px;
+      margin-bottom: 10px;
+    }
+
+    .cert-issuer {
+      font-size: 11px;
+      color: #55557a;
+      letter-spacing: 0.06em;
+    }
+
+    /* 버튼 (인증서 밖) */
+    .cert-btn-row {
       display: flex;
-      align-items: center;
+      gap: 10px;
       justify-content: center;
-      font-size: 24px;
-      margin: 0 auto 20px;
+      margin-top: 16px;
+      flex-wrap: wrap;
     }
-
-    .cert-date {
-      font-size: 12px;
-      color: #666688;
-      letter-spacing: 0.05em;
-    }
-
     .cert-print-btn {
       background: transparent;
       border: 1.5px solid #f5d06055;
@@ -531,11 +557,7 @@
       font-size: 13px;
       font-weight: 600;
       cursor: pointer;
-      margin-top: 16px;
       transition: background 0.15s;
-      display: block;
-      margin-left: auto;
-      margin-right: auto;
     }
     .cert-print-btn:hover { background: #f5d06011; }
     .cert-pdf-btn {
@@ -662,45 +684,59 @@
   </div>
 
   <div class="cert-wrap" id="cert-box" style="display:none">
-    <div class="cert-box">
+    <div class="cert-box" id="cert-capture">
+      <div class="cert-box-inner-border"></div>
       <div class="cert-corner tl"></div>
       <div class="cert-corner tr"></div>
       <div class="cert-corner bl"></div>
       <div class="cert-corner br"></div>
       <div class="cert-inner">
-        <div class="cert-top-badge">Certificate of Completion</div>
-        <div class="cert-title-kr">제미나이 활용 능력 인증서</div>
-        <div class="cert-book">된다! 하루 만에 끝내는 제미나이 활용법</div>
-        <div class="cert-divider"></div>
-        <div class="cert-to">이 인증서는</div>
-        <div class="cert-name" id="cert-user-name">응시자</div>
-        <div class="cert-desc">
-          위 응시자가 <strong style="-webkit-text-fill-color:#fff; color:#fff;">된다! 제미나이 활용법</strong>의<br>
-          전 과정을 성실히 이수하고<br>
-          제미나이 활용 능력 인증 시험에 합격하였음을<br>
-          이에 증명합니다.
+
+        <!-- 상단 -->
+        <div class="cert-top">
+          <div class="cert-top-badge">CERTIFICATE OF COMPLETION</div>
+          <div class="cert-title-kr">제미나이 활용 능력 인증서</div>
+          <div class="cert-book">된다! 하루 만에 끝내는 제미나이 활용법</div>
         </div>
-        <div class="cert-score-row">
-          <div class="cert-score-chip">
-            <div class="lbl">취득 점수</div>
-            <div class="val" id="cert-score-val">—</div>
-          </div>
-          <div class="cert-score-chip">
-            <div class="lbl">등급</div>
-            <div class="val" id="cert-grade-val">—</div>
-          </div>
-          <div class="cert-score-chip">
-            <div class="lbl">취득일</div>
-            <div class="val" id="cert-date" style="font-size:13px">—</div>
+
+        <!-- 중앙 -->
+        <div class="cert-mid">
+          <div class="cert-divider"></div>
+          <div class="cert-to">아래 사람에게 이 증서를 드립니다</div>
+          <div class="cert-name" id="cert-user-name">응시자</div>
+          <div class="cert-name-line"></div>
+          <div class="cert-desc">
+            위 사람은 『된다! 하루 만에 끝내는 제미나이 활용법』을 완독하고<br>
+            제미나이 활용 능력 인증 시험에 합격하여<br>
+            AI 업무 활용 역량이 검증되었음을 이에 증명합니다.
           </div>
         </div>
-        <div class="cert-seal">🏆</div>
-        <div class="cert-date">이지스퍼블리싱 · AI 활용 전문 강사 권서림</div>
-        <div class="cert-btn-row" style="display:flex; gap:10px; justify-content:center; margin-top:16px; flex-wrap:wrap;">
-          <button class="cert-print-btn" onclick="window.print()">🖨️ 인쇄하기</button>
-          <button class="cert-print-btn cert-pdf-btn" onclick="downloadCertPDF()">⬇️ PDF 저장하기</button>
+
+        <!-- 하단 -->
+        <div class="cert-bottom">
+          <div class="cert-score-row">
+            <div class="cert-score-chip">
+              <div class="lbl">취득 점수</div>
+              <div class="val" id="cert-score-val">—</div>
+            </div>
+            <div class="cert-score-chip">
+              <div class="lbl">등급</div>
+              <div class="val" id="cert-grade-val">—</div>
+            </div>
+            <div class="cert-score-chip">
+              <div class="lbl">취득일</div>
+              <div class="val" id="cert-date" style="font-size:12px">—</div>
+            </div>
+          </div>
+          <div class="cert-seal">🏆</div>
+          <div class="cert-issuer">이지스퍼블리싱 · AI 활용 전문 강사 권서림</div>
         </div>
+
       </div>
+    </div>
+    <div class="cert-btn-row">
+      <button class="cert-print-btn" onclick="window.print()">🖨️ 인쇄하기</button>
+      <button class="cert-print-btn cert-pdf-btn" onclick="downloadCertPDF()">⬇️ PDF 저장하기</button>
     </div>
   </div>
 
@@ -1170,7 +1206,7 @@
     btnRow.style.display = 'none';
 
     try {
-      const el = document.getElementById('cert-box');
+      const el = document.getElementById('cert-capture');
       const canvas = await html2canvas(el, {
         scale: 3,
         useCORS: true,
