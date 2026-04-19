@@ -541,6 +541,11 @@
       margin-right: auto;
     }
     .cert-print-btn:hover { background: #f5d06011; }
+    .cert-pdf-btn {
+      border-color: #4f8cff55 !important;
+      color: #4f8cff !important;
+    }
+    .cert-pdf-btn:hover { background: #4f8cff11 !important; }
 
     @media print {
       body > *:not(#result) { display: none !important; }
@@ -569,6 +574,8 @@
       .option-btn { font-size: 14px; padding: 12px 14px; }
     }
   </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
 
@@ -692,7 +699,10 @@
         </div>
         <div class="cert-seal">🏆</div>
         <div class="cert-date">이지스퍼블리싱 · AI 활용 전문 강사 권서림</div>
-        <button class="cert-print-btn" onclick="window.print()">🖨️ 인증서 인쇄하기</button>
+        <div style="display:flex; gap:10px; justify-content:center; margin-top:16px; flex-wrap:wrap;">
+          <button class="cert-print-btn" onclick="window.print()">🖨️ 인쇄하기</button>
+          <button class="cert-print-btn cert-pdf-btn" onclick="downloadCertPDF()">⬇️ PDF 저장하기</button>
+        </div>
       </div>
     </div>
   </div>
@@ -1149,6 +1159,46 @@
       document.getElementById('cert-score-val').textContent = score + ' / 30';
       document.getElementById('cert-grade-val').textContent = gradeStr;
       document.getElementById('cert-date').textContent = dateStr;
+    }
+  }
+
+  async function downloadCertPDF() {
+    const btn = document.querySelector('.cert-pdf-btn');
+    const originalText = btn.textContent;
+    btn.textContent = '⏳ 생성 중...';
+    btn.disabled = true;
+
+    try {
+      const el = document.getElementById('cert-box');
+      const canvas = await html2canvas(el, {
+        scale: 3,
+        useCORS: true,
+        backgroundColor: '#0d0d20',
+        logging: false
+      });
+
+      const { jsPDF } = window.jspdf;
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+
+      // A4 가로 기준으로 맞추기
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      const pageW = pdf.internal.pageSize.getWidth();
+      const pageH = pdf.internal.pageSize.getHeight();
+
+      const imgW = pageW - 24;
+      const imgH = (canvas.height * imgW) / canvas.width;
+      const x = 12;
+      const y = (pageH - imgH) / 2;
+
+      pdf.addImage(imgData, 'JPEG', x, y, imgW, imgH);
+
+      const userName = document.getElementById('cert-user-name').textContent || '응시자';
+      pdf.save(`제미나이_활용_능력_인증서_${userName}.pdf`);
+    } catch(e) {
+      alert('PDF 생성 중 오류가 발생했습니다.');
+    } finally {
+      btn.textContent = originalText;
+      btn.disabled = false;
     }
   }
 
