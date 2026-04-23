@@ -591,6 +591,66 @@
       #wrong-notes { display: none !important; }
     }
 
+    /* ── 설문 카드 ── */
+    #survey-card {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      z-index: 999;
+      background: #1a1a2e;
+      border-top: 1px solid #2a2a4a;
+      border-radius: 20px 20px 0 0;
+      padding: 20px 24px 28px;
+      box-shadow: 0 -8px 40px #0008;
+      transform: translateY(110%);
+      transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+      max-width: 540px;
+      margin: 0 auto;
+    }
+    #survey-card.visible { transform: translateY(0); }
+    .survey-card-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .survey-card-emoji { font-size: 28px; margin-right: 12px; }
+    .survey-card-texts { flex: 1; }
+    .survey-card-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+    .survey-card-sub {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .survey-card-close {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 20px;
+      cursor: pointer;
+      padding: 0 0 0 12px;
+      line-height: 1;
+    }
+    .survey-card-btn {
+      display: block;
+      width: 100%;
+      background: linear-gradient(135deg, #4f8cff, #7b5ea7);
+      color: #fff;
+      border: none;
+      border-radius: 14px;
+      padding: 14px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 16px;
+      letter-spacing: 0.02em;
+    }
+    .survey-card-btn:hover { opacity: 0.9; }
+
     /* ── 오답노트 ── */
     #wrong-notes {
       width: 100%;
@@ -1086,6 +1146,19 @@
   <button class="btn-retry" onclick="restartQuiz()">다시 도전하기</button>
 </div>
 
+<!-- 설문 카드 -->
+<div id="survey-card">
+  <div class="survey-card-top">
+    <span class="survey-card-emoji">☕</span>
+    <div class="survey-card-texts">
+      <div class="survey-card-title">커피 한 잔 받아가세요!</div>
+      <div class="survey-card-sub">30초 설문에 참여하시면<br>추첨을 통해 커피 기프티콘을 드립니다.</div>
+    </div>
+    <button class="survey-card-close" onclick="closeSurveyCard()">✕</button>
+  </div>
+  <button class="survey-card-btn" onclick="openSurvey()">설문 참여하고 커피 받기 →</button>
+</div>
+
 <script>
   // ── 문제 데이터 ──────────────────────────────────────────
   const questions = [
@@ -1364,6 +1437,27 @@
       page: 50
     }
   ];
+
+  // ── 설문 ─────────────────────────────────────────────────
+  const SURVEY_URL = ''; // ← 구글폼 링크 여기에 붙여넣기
+
+  let surveyTimer = null;
+
+  function showSurveyCard() {
+    surveyTimer = setTimeout(() => {
+      document.getElementById('survey-card').classList.add('visible');
+    }, 3000);
+  }
+
+  function closeSurveyCard() {
+    document.getElementById('survey-card').classList.remove('visible');
+    clearTimeout(surveyTimer);
+  }
+
+  function openSurvey() {
+    if (SURVEY_URL) window.open(SURVEY_URL, '_blank');
+    closeSurveyCard();
+  }
 
   // ── 상태 ─────────────────────────────────────────────────
   let current = 0;
@@ -1656,6 +1750,7 @@
   function showResult() {
     document.getElementById('level-result').style.display = 'none';
     document.getElementById('result').style.display = 'block';
+    showSurveyCard();
 
     const { score, lvScore } = calcScore();
     const pct = Math.round((score / 30) * 100);
@@ -1849,6 +1944,7 @@
   }
 
   function restartQuiz() {
+    closeSurveyCard();
     document.getElementById('result').style.display = 'none';
     document.getElementById('level-result').style.display = 'none';
     document.getElementById('cert-box').style.display = 'none';
