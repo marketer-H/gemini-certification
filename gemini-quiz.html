@@ -1895,13 +1895,21 @@
     const btnRow = document.querySelector('.cert-btn-row');
     btnRow.style.display = 'none';
 
+    const el = document.getElementById('cert-capture');
+    const prevWidth  = el.style.width;
+    const prevHeight = el.style.height;
+    el.style.width  = '600px';
+    el.style.height = '750px';
+    await new Promise(r => requestAnimationFrame(r));
+
     try {
-      const el = document.getElementById('cert-capture');
       const canvas = await html2canvas(el, {
-        scale: 3,
+        scale: 2,
         useCORS: true,
         backgroundColor: '#0d0d20',
-        logging: false
+        logging: false,
+        width: 600,
+        height: 750
       });
 
       const userName = document.getElementById('cert-user-name').textContent || '응시자';
@@ -1916,6 +1924,8 @@
     } catch(e) {
       if (e.name !== 'AbortError') alert('공유 중 오류가 발생했습니다.');
     } finally {
+      el.style.width  = prevWidth;
+      el.style.height = prevHeight;
       btnRow.style.display = '';
       btn.textContent = originalText;
       btn.disabled = false;
@@ -1931,13 +1941,22 @@
     const btnRow = document.querySelector('.cert-btn-row');
     btnRow.style.display = 'none';
 
+    const el = document.getElementById('cert-capture');
+    // 정확히 4:5 비율로 캡처하기 위해 고정 사이즈 지정 후 복원
+    const prevWidth  = el.style.width;
+    const prevHeight = el.style.height;
+    el.style.width  = '600px';
+    el.style.height = '750px';
+    await new Promise(r => requestAnimationFrame(r));
+
     try {
-      const el = document.getElementById('cert-capture');
       const canvas = await html2canvas(el, {
-        scale: 3,
+        scale: 2,
         useCORS: true,
         backgroundColor: '#0d0d20',
-        logging: false
+        logging: false,
+        width: 600,
+        height: 750
       });
 
       const userName = document.getElementById('cert-user-name').textContent || '응시자';
@@ -1949,6 +1968,8 @@
     } catch(e) {
       alert('이미지 생성 중 오류가 발생했습니다.');
     } finally {
+      el.style.width  = prevWidth;
+      el.style.height = prevHeight;
       btnRow.style.display = '';
       btn.textContent = originalText;
       btn.disabled = false;
