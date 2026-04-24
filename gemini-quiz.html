@@ -592,21 +592,25 @@
     }
 
     /* ── 설문 카드 ── */
+    @keyframes surveySlideUp {
+      from { transform: translateY(100%); opacity: 0; }
+      to   { transform: translateY(0);   opacity: 1; }
+    }
     #survey-card {
+      display: none;
       position: fixed;
       bottom: 0; left: 0; right: 0;
-      z-index: 999;
+      z-index: 9999;
       background: #1a1a2e;
       border-top: 1px solid #2a2a4a;
       border-radius: 20px 20px 0 0;
       padding: 20px 24px 28px;
       box-shadow: 0 -8px 40px #0008;
-      transform: translateY(110%);
-      transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
-      max-width: 540px;
-      margin: 0 auto;
     }
-    #survey-card.visible { transform: translateY(0); }
+    #survey-card.visible {
+      display: block;
+      animation: surveySlideUp 0.45s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
     .survey-card-top {
       display: flex;
       align-items: flex-start;
@@ -1444,14 +1448,16 @@
   let surveyTimer = null;
 
   function showSurveyCard() {
+    clearTimeout(surveyTimer);
     surveyTimer = setTimeout(() => {
-      document.getElementById('survey-card').classList.add('visible');
+      const card = document.getElementById('survey-card');
+      card.classList.add('visible');
     }, 3000);
   }
 
   function closeSurveyCard() {
-    document.getElementById('survey-card').classList.remove('visible');
     clearTimeout(surveyTimer);
+    document.getElementById('survey-card').classList.remove('visible');
   }
 
   function openSurvey() {
