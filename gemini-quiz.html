@@ -659,13 +659,14 @@
     #wrong-notes {
       width: 100%;
       max-width: 480px;
-      margin: 32px auto 0;
+      margin: 36px auto 0;
+      padding-bottom: 32px;
     }
     .wrong-notes-header {
       display: flex;
       align-items: center;
       gap: 10px;
-      margin-bottom: 16px;
+      margin-bottom: 20px;
     }
     .wrong-notes-title {
       font-size: 17px;
@@ -681,19 +682,26 @@
       font-size: 12px;
       font-weight: 700;
     }
+    /* 카드 전체 */
     .wrong-note-item {
       background: var(--card);
       border: 1px solid var(--border);
-      border-left: 3px solid var(--red);
-      border-radius: 14px;
-      padding: 18px 20px;
-      margin-bottom: 12px;
+      border-radius: 16px;
+      overflow: hidden;
+      margin-bottom: 14px;
     }
+    /* 상단 메타 바 */
     .wrong-note-meta {
       display: flex;
       align-items: center;
       gap: 8px;
-      margin-bottom: 10px;
+      padding: 12px 16px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .wrong-note-qnum {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
     }
     .wrong-note-lv {
       font-size: 10px;
@@ -702,71 +710,70 @@
       padding: 2px 8px;
       border-radius: 100px;
     }
-    .wrong-note-lv.lv1 { background: #1DB95422; color: #1DB954; border: 1px solid #1DB95444; }
-    .wrong-note-lv.lv2 { background: #F5A62322; color: #F5A623; border: 1px solid #F5A62344; }
-    .wrong-note-lv.lv3 { background: #E8434322; color: #ff7070; border: 1px solid #E8434344; }
-    .wrong-note-qnum {
-      font-size: 12px;
-      color: var(--muted);
-    }
+    .wrong-note-lv.lv1 { background: #1DB95420; color: #1DB954; border: 1px solid #1DB95444; }
+    .wrong-note-lv.lv2 { background: #F5A62320; color: #F5A623; border: 1px solid #F5A62344; }
+    .wrong-note-lv.lv3 { background: #E8434320; color: #ff7070; border: 1px solid #E8434344; }
+    /* 문제 텍스트 */
     .wrong-note-qtext {
       font-size: 14px;
       font-weight: 600;
       color: var(--text);
-      line-height: 1.6;
-      margin-bottom: 12px;
+      line-height: 1.65;
+      padding: 14px 16px 12px;
     }
-    .wrong-note-answers {
+    /* 답 비교 — 좌우 */
+    .wrong-note-compare {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+    .wrong-note-side {
+      padding: 12px 14px;
       display: flex;
       flex-direction: column;
-      gap: 6px;
-      margin-bottom: 12px;
+      gap: 4px;
     }
-    .wrong-note-row {
+    .wrong-note-side.mine  { background: #E8434310; border-top: 2px solid #E8434355; }
+    .wrong-note-side.right { background: #1DB95410; border-top: 2px solid #1DB95455; }
+    .wrong-note-side-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+    }
+    .wrong-note-side.mine  .wrong-note-side-label { color: #E84343bb; }
+    .wrong-note-side.right .wrong-note-side-label { color: #1DB954bb; }
+    .wrong-note-side-val {
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1.4;
+    }
+    .wrong-note-side.mine  .wrong-note-side-val { color: #ff9090; text-decoration: line-through; text-decoration-color: #E8434388; }
+    .wrong-note-side.right .wrong-note-side-val { color: #6ddf9e; }
+    /* 팁 */
+    .wrong-note-tip {
       display: flex;
       align-items: flex-start;
       gap: 8px;
-      font-size: 13px;
-      line-height: 1.5;
-    }
-    .wrong-note-label {
-      flex-shrink: 0;
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.04em;
-      padding: 2px 7px;
-      border-radius: 6px;
-      margin-top: 1px;
-    }
-    .label-wrong {
-      background: #E8434318;
-      color: var(--red);
-      border: 1px solid #E8434333;
-    }
-    .label-correct {
-      background: #1DB95418;
-      color: #1DB954;
-      border: 1px solid #1DB95433;
-    }
-    .wrong-note-val-wrong { color: #ff9090; text-decoration: line-through; }
-    .wrong-note-val-correct { color: #6ddf9e; font-weight: 600; }
-    .wrong-note-tip {
-      background: #4f8cff0d;
-      border: 1px solid #4f8cff22;
-      border-radius: 10px;
-      padding: 10px 14px;
+      padding: 12px 16px;
+      border-top: 1px solid var(--border);
       font-size: 12px;
       color: var(--muted);
       line-height: 1.6;
     }
-    .wrong-note-tip-page {
+    .wrong-note-page-chip {
+      flex-shrink: 0;
+      background: #4f8cff18;
+      border: 1px solid #4f8cff33;
       color: var(--accent);
-      font-weight: 600;
-      margin-right: 6px;
+      border-radius: 8px;
+      padding: 2px 8px;
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
+      margin-top: 1px;
     }
     .wrong-notes-empty {
       text-align: center;
-      padding: 24px;
+      padding: 32px 24px;
       color: #1DB954;
       font-size: 15px;
       font-weight: 600;
@@ -1449,10 +1456,8 @@
 
   function showSurveyCard() {
     clearTimeout(surveyTimer);
-    surveyTimer = setTimeout(() => {
-      const card = document.getElementById('survey-card');
-      card.classList.add('visible');
-    }, 3000);
+    const card = document.getElementById('survey-card');
+    card.classList.add('visible');
   }
 
   function closeSurveyCard() {
@@ -1855,22 +1860,23 @@
         html += `
           <div class="wrong-note-item">
             <div class="wrong-note-meta">
-              <span class="wrong-note-lv ${lvCls[q.level]}">${lvLabel[q.level]}</span>
               <span class="wrong-note-qnum">Q${qNum}</span>
+              <span class="wrong-note-lv ${lvCls[q.level]}">${lvLabel[q.level]}</span>
             </div>
             <div class="wrong-note-qtext">${q.text}</div>
-            <div class="wrong-note-answers">
-              <div class="wrong-note-row">
-                <span class="wrong-note-label label-wrong">오답</span>
-                <span class="wrong-note-val-wrong">${myAnswerText}</span>
+            <div class="wrong-note-compare">
+              <div class="wrong-note-side mine">
+                <span class="wrong-note-side-label">❌ 내 답</span>
+                <span class="wrong-note-side-val">${myAnswerText}</span>
               </div>
-              <div class="wrong-note-row">
-                <span class="wrong-note-label label-correct">정답</span>
-                <span class="wrong-note-val-correct">${correctAnswerText}</span>
+              <div class="wrong-note-side right">
+                <span class="wrong-note-side-label">✅ 정답</span>
+                <span class="wrong-note-side-val">${correctAnswerText}</span>
               </div>
             </div>
             <div class="wrong-note-tip">
-              <span class="wrong-note-tip-page">p.${q.page}</span>${q.comment}
+              <span class="wrong-note-page-chip">p.${q.page}</span>
+              <span>${q.comment}</span>
             </div>
           </div>`;
       });
