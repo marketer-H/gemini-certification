@@ -1898,8 +1898,8 @@
     const el = document.getElementById('cert-capture');
     const prevWidth  = el.style.width;
     const prevHeight = el.style.height;
-    el.style.width  = '600px';
-    el.style.height = '750px';
+    el.style.width  = '540px';
+    el.style.height = '675px';
     await new Promise(r => requestAnimationFrame(r));
 
     try {
@@ -1908,8 +1908,8 @@
         useCORS: true,
         backgroundColor: '#0d0d20',
         logging: false,
-        width: 600,
-        height: 750
+        width: 540,
+        height: 675
       });
 
       const userName = document.getElementById('cert-user-name').textContent || '응시자';
@@ -1945,8 +1945,8 @@
     // 정확히 4:5 비율로 캡처하기 위해 고정 사이즈 지정 후 복원
     const prevWidth  = el.style.width;
     const prevHeight = el.style.height;
-    el.style.width  = '600px';
-    el.style.height = '750px';
+    el.style.width  = '540px';
+    el.style.height = '675px';
     await new Promise(r => requestAnimationFrame(r));
 
     try {
@@ -1955,8 +1955,8 @@
         useCORS: true,
         backgroundColor: '#0d0d20',
         logging: false,
-        width: 600,
-        height: 750
+        width: 540,
+        height: 675
       });
 
       const userName = document.getElementById('cert-user-name').textContent || '응시자';
