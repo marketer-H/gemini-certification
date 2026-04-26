@@ -5,5 +5,4 @@ isbn_cache.json
 *.bak
 __pycache__/
 .env
-dashboard.html
 *.xlsx

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>도서 평점 대시보드</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+         background: #f0f2f5; color: #333; padding: 24px; }
+  h1 { font-size: 22px; font-weight: 700; color: #1a1a2e; margin-bottom: 4px; }
+  .meta { font-size: 13px; color: #888; margin-bottom: 24px; }
+
+  .cards { display: flex; gap: 16px; margin-bottom: 28px; flex-wrap: wrap; }
+  .card { background: white; border-radius: 12px; padding: 20px 28px;
+           box-shadow: 0 1px 4px rgba(0,0,0,.08); min-width: 140px; }
+  .card .num { font-size: 32px; font-weight: 700; }
+  .card .label { font-size: 12px; color: #888; margin-top: 2px; }
+  .card.red .num { color: #e74c3c; }
+  .card.orange .num { color: #e67e22; }
+  .card.blue .num { color: #3498db; }
+
+  .section { background: white; border-radius: 12px; padding: 20px;
+              box-shadow: 0 1px 4px rgba(0,0,0,.08); margin-bottom: 20px; }
+  .section h2 { font-size: 15px; font-weight: 600; margin-bottom: 14px;
+                 padding-bottom: 10px; border-bottom: 1px solid #eee; }
+  .section h2 span { font-size: 12px; font-weight: 400; color: #999; margin-left: 8px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 8px 12px; background: #f8f9fa;
+        color: #555; font-weight: 600; border-bottom: 2px solid #eee; }
+  td { padding: 10px 12px; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  tr.critical td { background: #fff5f5; }
+  tr.warning td { background: #fffbf0; }
+  tr:hover td { filter: brightness(0.97); }
+
+  .rating { font-weight: 700; font-size: 15px; width: 50px; }
+  tr.critical .rating { color: #e74c3c; }
+  tr.warning .rating { color: #e67e22; }
+
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 20px;
+            font-size: 11px; font-weight: 600; }
+  .badge.aladin { background: #e8f4fd; color: #2980b9; }
+  .badge.yes24  { background: #fef9e7; color: #d68910; }
+  .badge.kyobo  { background: #eafaf1; color: #27ae60; }
+
+  a { color: #2980b9; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .rec { color: #555; line-height: 1.5; max-width: 380px; }
+  .review-count { text-align: center; color: #888; font-size: 12px; width: 60px; }
+
+  input[type=text] { width: 100%; padding: 8px 12px; border: 1px solid #ddd;
+                      border-radius: 8px; font-size: 13px; margin-bottom: 12px; }
+
+  .filters { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+  .filter-btn { padding: 5px 14px; border-radius: 20px; border: 1px solid #ddd;
+                 background: white; font-size: 12px; font-weight: 600; cursor: pointer;
+                 transition: all .15s; }
+  .filter-btn:hover { filter: brightness(0.95); }
+  .filter-btn.active { color: white; border-color: transparent; }
+  .filter-btn[data-store="all"].active { background: #555; }
+  .filter-btn[data-store="aladin"].active { background: #2980b9; }
+  .filter-btn[data-store="yes24"].active  { background: #d68910; }
+  .filter-btn[data-store="kyobo"].active  { background: #27ae60; }
+</style>
+</head>
+<body>
+<h1>도서 평점 대시보드</h1>
+<p class="meta">마지막 업데이트: 2026-04-12 23:35 &nbsp;|&nbsp; 임계값: 9.0 미만</p>
+
+<div class="cards">
+  <div class="card blue"><div class="num">36</div><div class="label">전체 미만 도서</div></div>
+  <div class="card red"><div class="num">15</div><div class="label">긴급 (8.5 미만)</div></div>
+  <div class="card orange"><div class="num">21</div><div class="label">주의 (8.5~9.0)</div></div>
+</div>
+
+<input type="text" id="search" placeholder="도서명 검색..." onkeyup="applyFilter()">
+
+<div class="filters">
+  <button class="filter-btn active" data-store="all" onclick="setStore('all')">전체</button>
+  <button class="filter-btn" data-store="aladin" onclick="setStore('aladin')">알라딘</button>
+  <button class="filter-btn" data-store="yes24"  onclick="setStore('yes24')">예스24</button>
+  <button class="filter-btn" data-store="kyobo"  onclick="setStore('kyobo')">교보문고</button>
+</div>
+
+<p style="font-size:12px;color:#aaa;margin-bottom:16px;">총 <span id="count">36</span>건 표시 중</p>
+
+<div class="section"><h2>된다! 시리즈 <span>4건</span></h2><table class="mainTable"><thead><tr><th>평점</th><th>서점</th><th>도서명</th><th style="text-align:center">리뷰 수</th><th>AI 대응 권고</th></tr></thead><tbody><tr class="critical" data-store="aladin"><td class="rating">6.0</td><td><span class="badge aladin">aladin</span></td><td><a href="https://www.aladin.co.kr/shop/wproduct.aspx?ISBN=9788997390892" target="_blank">된다! 엑셀 능력자</a></td><td class="review-count">2</td><td class="rec">알라딘 MD와 협의해 '엑셀 실무 활용' 테마 기획전에 포함시키고, 구매자 대상 예제 파일 추가 제공 이벤트를 진행하세요.</td></tr>
+<tr class="warning" data-store="kyobo"><td class="rating">8.7</td><td><span class="badge kyobo">kyobo</span></td><td><a href="https://product.kyobobook.co.kr/detail/S000001615458" target="_blank">된다! 엑셀 능력자</a></td><td class="review-count">2</td><td class="rec">6.0에서 8.7로 급등한 개선 사실을 '독자 피드백으로 업그레이드된 책'이라는 콘셉트로 kyobo 공식 SNS에 홍보 카드뉴스로 게재하세요.</td></tr>
+<tr class="warning" data-store="kyobo"><td class="rating">8.8</td><td><span class="badge kyobo">kyobo</span></td><td><a href="https://product.kyobobook.co.kr/detail/S000212659236" target="_blank">된다! 톡써니의 아이패드 24시간 활용법</a></td><td class="review-count">8</td><td class="rec">교보문고 MD에게 '아이패드 활용' 테마 기획전 입점을 제안하고, 국내 주요 아이패드 카카오 오픈채팅방·네이버 카페에 저자 숏폼 활용 영상을 배포하세요.</td></tr>
+<tr class="warning" data-store="kyobo"><td class="rating">8.9</td><td><span class="badge kyobo">kyobo</span></td><td><a href="https://product.kyobobook.co.kr/detail/S000215056428" target="_blank">된다! 7일 구글 스프레드시트</a></td><td class="review-count">4</td><td class="rec">직장인 커뮤니티(블라인드·네이버 직장인 카페)에 '구글 스프레드시트 꿀팁 3선' 카드뉴스를 게시하고, 구글 워크스페이스 관련 유튜버와 협력해 협찬 리뷰 콘텐츠를 제작하세요.</td></tr>
+</tbody></table></div>
+<div class="section"><h2>Do it! 시리즈 <span>20건</span></h2><table class="mainTable"><thead><tr><th>평점</th><th>서점</th><th>도서명</th><th style="text-align:center">리뷰 수</th><th>AI 대응 권고</th></tr></thead><tbody><tr class="critical" data-store="yes24"><td class="rating">7.0</td><td><span class="badge yes24">yes24</span></td><td><a href="https://www.yes24.com/Product/Search?query=9791163037613&domain=BOOK" target="_blank">Do it! 알고리즘 코딩 테스트 : 파이썬 편</a></td><td class="review-count">2</td><td class="rec">코딩테스트 준비 시즌(상반기 공채)에 맞춰 yes24 IT 커뮤니티 게시판에 저자 직강 무료 특강 이벤트 공지를 올리세요.</td></tr>
+<tr class="critical" data-store="yes24"><td class="rating">7.3</td><td><span class="badge yes24">yes24</span></td><td><a href="https://www.yes24.com/Product/Search?query=9791163031482&domain=BOOK" target="_blank">Do it! 타입스크립트 프로그래밍</a></td><td class="review-count">10</td><td class="rec">yes24 타임딜 또는 오늘의 책 프로모션 슬롯을 신청해 단기 할인 노출로 구매 전환을 높이세요.</td></tr>
+<tr class="critical" data-store="kyobo"><td class="rating">7.5</td><td><span class="badge kyobo">kyobo</span></td><td><a href="https://product.kyobobook.co.kr/detail/S000001818059" target="_blank">Do it! 첫 인공지능</a></td><td class="review-count">3</td><td class="rec">교보 북클럽 AI·머신러닝 독서모임에 저자를 초청해 온라인 북토크를 개최하고 참여자 서평 작성을 독려하세요.</td></tr>
+<tr class="critical" data-store="aladin"><td class="rating">7.8</td><td><span class="badge aladin">aladin</span></td><td><a href="https://www.aladin.co.kr/shop/wproduct.aspx?ISBN=9791163031482" target="_blank">Do it! 타입스크립트 프로그래밍</a></td><td class="review-count">10</td><td class="rec">알라딘에서 평점이 상승 중인 모멘텀을 활용해 '독자 추천 이유 한 줄 이벤트'를 SNS에 공모하고 당첨자에게 굿즈를 증정하세요.</td></tr>
+<tr class="critical" data-store="yes24"><td class="rating">8.0</td><td><span class="badge yes24">yes24</span></td><td><a href="https://www.yes24.com/Product/Search?query=9791187370802&domain=BOOK" target="_blank">Do it! Node.js 프로그래밍</a></td><td class="review-count">13</td><td class="rec">Node.js 관련 오픈카카오톡·슬랙 개발자 커뮤니티에 저자가 직접 참여하는 Q&A 세션을 열어 책 홍보와 함께 독자 서평 작성을 유도하세요.</td></tr>
+<tr class="critical" data-store="kyobo"><td class="rating">8.0</td><td><span class="badge kyobo">kyobo</span></td><td><a href="https://product.kyobobook.co.kr/detail/S000001817978" target="_blank">Do it! 프로그레시브 웹앱 만들기</a></td><td class="review-count">11</td><td class="rec">PWA 실무 활용 사례를 담은 카드뉴스를 제작해 교보문고 공식 SNS 채널에 게재하고 책 구매 링크를 연결하세요.</td></tr>
+<tr class="critical" data-store="aladin"><td class="rating">8.0</td><td><span class="badge aladin">aladin</span></td><td><a href="https://www.aladin.co.kr/shop/wproduct.aspx?ISBN=9791163036807" target="_blank">Do it! 스위프트로 아이폰 앱 만들기 : 입문</a></td><td class="review-count">1</td><td class="rec">iOS 개발 입문 시즌인 WWDC 전후를 타깃으로 알라딘 개발서 섹션에 배너 광고를 집행해 신규 독자를 유입하세요.</td></tr>
+<tr class="critical" data-store="aladin"><td class="rating">8.0</td><td><span class="badge aladin">aladin</span></td><td><a href="https://www.aladin.co.kr/shop/wproduct.aspx?ISBN=9791163037309" target="_blank">Do it! 플러터 앱 개발 & 출시하기</a></td><td class="review-count">4</td><td class="rec">플러터 앱 출시 경험자 독자를 대상으로 알라딘 서평단 모집 이벤트를 열어 실사용 후기 리뷰 수를 확보하세요.</td></tr>
+<tr class="critical" data-store="yes24"><td class="rating">8.1</td><td><span class="badge yes24">yes24</span></td><td><a href="https://www.yes24.com/Product/Search?query=9791163032892&domain=BOOK" target="_blank">Do it! 플러터 앱 프로그래밍</a></td><td class="review-count">9</td><td class="rec">yes24 리뷰어 클럽에 도서를 등록해 검증된 리뷰어로부터 심층 서평을 확보하고 상세 페이지 노출을 강화하세요.</td></tr>
+<tr class="critical" data-store="yes24"><td class="rating">8.4</td><td><span class="badge yes24">yes24</span></td><td><a href="https://www.yes24.com/Product/Search?query=9791163034940&domain=BOOK" target="_blank">Do it! 프런트엔드 UI 개발 with Vue.js</a></td><td class="review-count">6</td><td class="rec">프런트엔드 개발자 커뮤니티(OKKY, 번개장터 스터디)에 Vue.js 스터디 지원 프로그램을 공지하고 참여 팀에게 도서를 단체 할인 제공하세요.</td></tr>
+<tr class="warning" data-store="yes24"><td class="rating">8.5</td><td><span class="badge yes24">yes24</span></td><td><a href="https://www.yes24.com/Product/Search?query=9791163033554&domain=BOOK" target="_blank">Do it! 점프 투 파이썬 : 라이브러리 예제 편</a></td><td class="review-count">5</td><td class="rec">yes24 독자 서평단 10명을 모집해 파이썬 라이브러리 실습 후기를 작성하는 리뷰 캠페인을 즉시 공고하세요.</td></tr>
+<tr class="warning" data-store="yes24"><td class="rating">8.5</td><td><span class="badge yes24">yes24</span></td><td><a href="https://www.yes24.com/Product/Search?query=9791163035961&domain=BOOK" target="_blank">Do it! 조코딩의 첫 웹 개발</a></td><td class="review-count">4</td><td class="rec">저자 조코딩의 유튜브 채널과 연계해 책 속 프로젝트 완성 챌린지를 SNS 해시태그 이벤트로 진행하세요.</td></tr>
+<tr class="warning" data-store="yes24"><td class="rating">8.6</td><td><span class="badge yes24">yes24</span></td><td><a href="https://www.yes24.com/Product/Search?query=9791163035398&domain=BOOK" target="_blank">Do it! 점프 투 스프링 부트 3</a></td><td class="review-count">2</td><td class="rec">인프런·백엔드 개발자 오픈카톡 채널에 스프링 부트 3 신기능 정리 요약본을 무료 제공하며 도서 구매 링크를 함께 발송하세요.</td></tr>
+<tr class="warning" data-store="aladin"><td class="rating">8.7</td><td><span class="badge aladin">aladin</span></td><td><a href="https://www.aladin.co.kr/shop/wproduct.aspx?ISBN=9791163033431" target="_blank">Do it! 첫 인공지능</a></td><td class="review-count">3</td><td class="rec">알라딘 'AI 입문' 카테고리 연관 도서 구매자에게 타겟 쿠폰을 발행하고, 저자 인터뷰 영상을 알라딘 공식 채널에 업로드하세요.</td></tr>
+<tr class="warning" data-store="yes24"><td class="rating">8.7</td><td><span class="badge yes24">yes24</span></td><td><a href="https://www.yes24.com/Product/Search?query=9791163033486&domain=BOOK" target="_blank">Do it! 자료구조와 함께 배우는 알고리즘 입문 : 자바 편</a></td><td class="review-count">5</td><td class="rec">프로그래머스·solved.ac 사용자 대상으로 '알고리즘 스터디 교재 추천' 배너 광고를 yes24와 협의해 집행하세요.</td></tr>
+<tr class="warning" data-store="kyobo"><td class="rating">8.7</td><td><span class="badge kyobo">kyobo</span></td><td><a href="https://product.kyobobook.co.kr/detail/S000208357862" target="_blank">Do it! 프런트엔드 UI 개발 with Vue.js</a></td><td class="review-count">6</td><td class="rec">Vue.js 한국 사용자 그룹(VueJS Korea) Discord에 무료 샘플 챕터를 제공하며 교보 구매 링크와 함께 공유하세요.</td></tr>
+<tr class="warning" data-store="kyobo"><td class="rating">8.8</td><td><span class="badge kyobo">kyobo</span></td><td><a href="https://product.kyobobook.co.kr/detail/S000001900875" target="_blank">Do it! Node.js 프로그래밍</a></td><td class="review-count">13</td><td class="rec">8.0에서 8.8로 오른 평점을 근거로 교보문고 'IT 스테디셀러' 기획전 입점을 제안하고, Node.js 관련 유튜브 채널에 협찬 리뷰를 의뢰하세요.</td></tr>
+<tr class="warning" data-store="aladin"><td class="rating">8.8</td><td><span class="badge aladin">aladin</span></td><td><a href="https://www.aladin.co.kr/shop/wproduct.aspx?ISBN=9791163033486" target="_blank">Do it! 자료구조와 함께 배우는 알고리즘 입문 : 자바 편</a></td><td class="review-count">5</td><td class="rec">알라딘 서재 기능을 활용해 독자들이 풀이 코드를 공유할 수 있는 스터디 서재 그룹을 개설하고 참여자에게 적립금을 제공하세요.</td></tr>
+<tr class="warning" data-store="aladin"><td class="rating">8.9</td><td><span class="badge aladin">aladin</span></td><td><a href="https://www.aladin.co.kr/shop/wproduct.aspx?ISBN=9791187370802" target="_blank">Do it! Node.js 프로그래밍</a></td><td class="review-count">13</td><td class="rec">평점 상승 모멘텀을 살려 알라딘 TTB 서평단을 20명 추가 모집하고, 'Node.js 입문자 추천 1위' 문구로 상세페이지 배너를 업데이트하세요.</td></tr>
+<tr class="warning" data-store="kyobo"><td class="rating">8.9</td><td><span class="badge kyobo">kyobo</span></td><td><a href="https://product.kyobobook.co.kr/detail/S000001818008" target="_blank">Do it! 반응형 웹 페이지 만들기</a></td><td class="review-count">8</td><td class="rec">OKKY·인프런 등 웹 개발자 커뮤니티에 반응형 웹 실습 예제 무료 챕터를 공개하고, 교보문고 전자책 1주 무료 체험 프로모션을 진행하세요.</td></tr>
+</tbody></table></div>
+<div class="section"><h2>기타 <span>12건</span></h2><table class="mainTable"><thead><tr><th>평점</th><th>서점</th><th>도서명</th><th style="text-align:center">리뷰 수</th><th>AI 대응 권고</th></tr></thead><tbody><tr class="critical" data-store="kyobo"><td class="rating">6.3</td><td><span class="badge kyobo">kyobo</span></td><td><a href="https://product.kyobobook.co.kr/detail/S000001818062" target="_blank">아이패드로 캐릭터 디자인 with 프로크리에이트</a></td><td class="review-count">7</td><td class="rec">프로크리에이트 관련 유튜브·인스타그램 크리에이터 7명에게 협찬 리뷰를 요청해 교보 서평 유입을 유도하세요.</td></tr>
+<tr class="critical" data-store="kyobo"><td class="rating">8.2</td><td><span class="badge kyobo">kyobo</span></td><td><a href="https://product.kyobobook.co.kr/detail/S000208862698" target="_blank">캐릭터 제작을 위한 블렌더 3D 모델링&렌더링</a></td><td class="review-count">15</td><td class="rec">블렌더 국내 최대 페이스북 그룹 및 디스코드 채널에 저자 협업 튜토리얼 영상을 배포하고 교보 구매 링크를 함께 공유하세요.</td></tr>
+<tr class="critical" data-store="aladin"><td class="rating">8.3</td><td><span class="badge aladin">aladin</span></td><td><a href="https://www.aladin.co.kr/shop/wproduct.aspx?ISBN=9791163030096" target="_blank">데이터 과학 무엇을 하는가?</a></td><td class="review-count">6</td><td class="rec">데이터 직군 취업 준비생을 타깃으로 링크드인 광고를 집행하고, 알라딘 장바구니 쿠폰 발행을 통해 구매 전환을 유도하세요.</td></tr>
+<tr class="critical" data-store="kyobo"><td class="rating">8.3</td><td><span class="badge kyobo">kyobo</span></td><td><a href="https://product.kyobobook.co.kr/detail/S000001615448" target="_blank">프로 사진가들의 사진 보정과 렌즈 활용법</a></td><td class="review-count">6</td><td class="rec">사진 동호회 네이버 카페 상위 5곳에 저자 명의의 '렌즈별 보정 팁' 칼럼을 연재하며 교보 구매 페이지로 유입을 유도하세요.</td></tr>
+<tr class="warning" data-store="kyobo"><td class="rating">8.5</td><td><span class="badge kyobo">kyobo</span></td><td><a href="https://product.kyobobook.co.kr/detail/S000001615443" target="_blank">프로 사진가들이 사용하는 노출과 조리개값</a></td><td class="review-count">5</td><td class="rec">네이버 사진 카페 및 디시인사이드 사진 갤러리에 도서 체험단 모집 게시물을 올려 커뮤니티 독자층을 직접 공략하세요.</td></tr>
+<tr class="warning" data-store="yes24"><td class="rating">8.6</td><td><span class="badge yes24">yes24</span></td><td><a href="https://www.yes24.com/Product/Search?query=9791163035022&domain=BOOK" target="_blank">캐릭터 제작을 위한 블렌더 3D 모델링&렌더링</a></td><td class="review-count">15</td><td class="rec">평점 상승 모멘텀을 활용해 블렌더 공식 한국 커뮤니티와 협력, 독자 작품 전시 이벤트를 yes24 페이지에 연동해 홍보하세요.</td></tr>
+<tr class="warning" data-store="aladin"><td class="rating">8.7</td><td><span class="badge aladin">aladin</span></td><td><a href="https://www.aladin.co.kr/shop/wproduct.aspx?ISBN=9791188612925" target="_blank">블록체인 무엇인가?</a></td><td class="review-count">21</td><td class="rec">알라딘 TTB 리뷰어 중 경제·기술 분야 활성 사용자를 선별해 블록체인 주제 독자 토론 이벤트 초대장을 발송하세요.</td></tr>
+<tr class="warning" data-store="aladin"><td class="rating">8.7</td><td><span class="badge aladin">aladin</span></td><td><a href="https://www.aladin.co.kr/shop/wproduct.aspx?ISBN=9791163032724" target="_blank">데이터는 어떻게 자산이 되는가?</a></td><td class="review-count">3</td><td class="rec">링크드인 및 데이터 직군 오픈카톡방에 도서 속 데이터 자산화 핵심 인사이트 카드를 3종 제작해 배포하세요.</td></tr>
+<tr class="warning" data-store="yes24"><td class="rating">8.8</td><td><span class="badge yes24">yes24</span></td><td><a href="https://www.yes24.com/Product/Search?query=9791188612925&domain=BOOK" target="_blank">블록체인 무엇인가?</a></td><td class="review-count">21</td><td class="rec">yes24 기준 8.8 달성을 기념해 48시간 한정 10% 할인 타임세일을 진행하고 구매자 전원 전자책 샘플 증정 이벤트를 연계하세요.</td></tr>
+<tr class="warning" data-store="aladin"><td class="rating">8.8</td><td><span class="badge aladin">aladin</span></td><td><a href="https://www.aladin.co.kr/shop/wproduct.aspx?ISBN=9791163035022" target="_blank">캐릭터 제작을 위한 블렌더 3D 모델링&렌더링</a></td><td class="review-count">15</td><td class="rec">인스타그램·아트스테이션 등 3D 아티스트 커뮤니티에 독자 렌더링 작품 공모전을 개최하고 우수작을 알라딘 도서 페이지에 게재하세요.</td></tr>
+<tr class="warning" data-store="yes24"><td class="rating">8.9</td><td><span class="badge yes24">yes24</span></td><td><a href="https://www.yes24.com/Product/Search?query=9791163030096&domain=BOOK" target="_blank">데이터 과학 무엇을 하는가?</a></td><td class="review-count">6</td><td class="rec">yes24 IT 분야 MD 추천 코너 입점을 신청하고, 데이터 직군 종사자가 활발한 '데이터 사이언스 커뮤니티(Facebook 그룹·링크드인)'에 저자 기고 콘텐츠를 게재하세요.</td></tr>
+<tr class="warning" data-store="kyobo"><td class="rating">8.9</td><td><span class="badge kyobo">kyobo</span></td><td><a href="https://product.kyobobook.co.kr/detail/S000001818024" target="_blank">데이터는 어떻게 자산이 되는가?</a></td><td class="review-count">3</td><td class="rec">리뷰 작성자에게 소정의 굿즈를 증정하는 '독자 리뷰 이벤트'를 교보문고 페이지에 게시하고, 직장인 대상 블라인드·링크드인 채널에 '데이터 자산화' 주제 카드뉴스를 발행하세요.</td></tr>
+</tbody></table></div>
+
+<script>
+let activeStore = 'all';
+
+function setStore(store) {
+  activeStore = store;
+  document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.store === store);
+  });
+  applyFilter();
+}
+
+function applyFilter() {
+  const q = document.getElementById('search').value.toLowerCase();
+  let visible = 0;
+  document.querySelectorAll('.mainTable tbody tr').forEach(tr => {
+    const storeMatch = activeStore === 'all' || tr.dataset.store === activeStore;
+    const textMatch  = tr.textContent.toLowerCase().includes(q);
+    const show = storeMatch && textMatch;
+    tr.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+  document.getElementById('count').textContent = visible;
+}
+</script>
+</body>
+</html>
