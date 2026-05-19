@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>오늘의 동글</title>
+
+  <!-- Firebase Compat SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCxIY9X_pzoNYfFEgRcSJuxWvj0sftfnDs",
+      authDomain: "projuect1-today-record.firebaseapp.com",
+      projectId: "projuect1-today-record",
+      storageBucket: "projuect1-today-record.firebasestorage.app",
+      messagingSenderId: "1063146551996",
+      appId: "1:1063146551996:web:d1d7e9f11e3dd3e4866eb9"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    const PROMPTS = [
+      { key: 't1', label: '한번 해보자', placeholder: '오늘 처음 시도해 본 것' },
+      { key: 't2', label: '이건 잘했어', placeholder: '오늘 잘한 것' },
+      { key: 't3', label: '괜찮아\n다음에 더 잘할 수 있어', placeholder: '괜찮아, 다음엔 더 잘할 수 있어' },
+    ];
+
+    let currentUser = null;
+    let currentNickname = '';
+    let unsubFeed = null;
+
+    function todayStr() {
+      const d = new Date();
+      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+    }
+    function pad(n) { return String(n).padStart(2,'0'); }
+    function entryId(uid, date) { return `${uid}_${date}`; }
+
+    // ── Auth ──────────────────────────────────────
+    auth.onAuthStateChanged(async user => {
+      if (user) {
+        currentUser = user;
+        try {
+          const userDoc = await db.collection('users').doc(user.uid).get();
+          if (userDoc.exists) {
+            currentNickname = userDoc.data().nickname;
+            showMain();
+          } else {
+            showSetup();
+          }
+        } catch (e) {
+          showSetup();
+        }
+      } else {
+        auth.signInAnonymously().catch(() => showSetup());
+      }
+    });
+
+    // ── Setup ─────────────────────────────────────
+    window.submitNickname = async () => {
+      const input = document.getElementById('nicknameInput');
+      const nick = input.value.trim();
+      if (!nick) { input.focus(); return; }
+
+      await db.collection('users').doc(currentUser.uid).set({
+        nickname: nick,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      currentNickname = nick;
+      showMain();
+    };
+
+    window.nicknameKeydown = (e) => { if (e.key === 'Enter') window.submitNickname(); };
+
+    // ── Main ──────────────────────────────────────
+    function showSetup() {
+      document.getElementById('setup').style.display = 'flex';
+      document.getElementById('main').style.display = 'none';
+    }
+
+    function showMain() {
+      document.getElementById('setup').style.display = 'none';
+      document.getElementById('main').style.display = 'flex';
+      document.getElementById('nicknameLabel').textContent = currentNickname;
+      loadMyEntry();
+      loadFeed();
+      document.querySelectorAll('.prompt-textarea').forEach(ta => {
+        ta.addEventListener('input', () => { autoResize(ta); updateSaveState(false); });
+      });
+    }
+
+    // ── My Entry ──────────────────────────────────
+    async function loadMyEntry() {
+      const snap = await db.collection('entries').doc(entryId(currentUser.uid, todayStr())).get();
+      if (snap.exists) {
+        const d = snap.data();
+        PROMPTS.forEach(p => {
+          const el = document.getElementById(p.key);
+          if (el) { el.value = d[p.key] || ''; autoResize(el); }
+        });
+        updateSaveState(true);
+      }
+    }
+
+    window.saveEntry = async () => {
+      const btn = document.getElementById('saveBtn');
+      btn.disabled = true;
+      btn.textContent = '저장 중…';
+
+      const data = {
+        uid: currentUser.uid,
+        nickname: currentNickname,
+        date: todayStr(),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
+      PROMPTS.forEach(p => {
+        data[p.key] = (document.getElementById(p.key)?.value || '').trim();
+      });
+
+      await db.collection('entries').doc(entryId(currentUser.uid, todayStr())).set(data);
+      updateSaveState(true);
+      showToast('저장됐어요 ◯');
+    };
+
+    function updateSaveState(saved) {
+      const btn = document.getElementById('saveBtn');
+      btn.disabled = false;
+      if (saved) {
+        btn.textContent = '저장됐어요 ◯';
+        btn.classList.add('saved');
+      } else {
+        btn.textContent = '저장하기';
+        btn.classList.remove('saved');
+      }
+    }
+
+    // ── Feed ─────────────────────────────────────
+    function loadFeed() {
+      if (unsubFeed) unsubFeed();
+      unsubFeed = db.collection('entries').where('date', '==', todayStr())
+        .onSnapshot(snap => {
+          const feed = document.getElementById('feed');
+          feed.innerHTML = '';
+          if (snap.empty) {
+            feed.innerHTML = '<p class="empty-feed">아직 오늘 기록한 사람이 없어요.<br>첫 번째로 기록해 보세요 ◯</p>';
+            return;
+          }
+          const docs = snap.docs.map(d => d.data());
+          docs.sort((a,b) => (b.updatedAt?.seconds||0) - (a.updatedAt?.seconds||0));
+          docs.forEach(entry => feed.appendChild(renderCard(entry)));
+        });
+    }
+
+    function renderCard(entry) {
+      const isMe = entry.uid === currentUser?.uid;
+      const div = document.createElement('div');
+      div.className = 'feed-card' + (isMe ? ' mine' : '');
+      div.innerHTML = `
+        <div class="feed-nick">${escHtml(entry.nickname)}${isMe ? ' <span class="me-badge">나</span>' : ''}</div>
+        ${PROMPTS.map(p => entry[p.key] ? `
+          <div class="feed-item">
+            <span class="feed-label">${p.label.replace('\n',' ')}</span>
+            <span class="feed-text">${escHtml(entry[p.key])}</span>
+          </div>` : '').join('')}
+      `;
+      return div;
+    }
+
+    function escHtml(s) {
+      return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    // ── Tab ──────────────────────────────────────
+    window.switchTab = (tab) => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      document.getElementById('tab-' + tab).classList.add('active');
+      document.getElementById('content-' + tab).classList.add('active');
+    };
+
+    function autoResize(el) {
+      el.style.height = 'auto';
+      el.style.height = el.scrollHeight + 'px';
+    }
+
+    window.autoResize = autoResize;
+
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2200);
+    }
+  </script>
+
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+      background: #fafaf8;
+      min-height: 100vh;
+      color: #2c2c2c;
+    }
+
+    /* ── Setup Screen ─────────────────────────── */
+    #setup {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 40px 24px;
+      gap: 0;
+    }
+
+    .setup-circle {
+      font-size: 48px;
+      margin-bottom: 20px;
+      line-height: 1;
+      color: #F5C400;
+    }
+
+    .setup-title {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+      text-align: center;
+    }
+
+    .setup-sub {
+      font-size: 14px;
+      color: #999;
+      text-align: center;
+      margin-bottom: 36px;
+      line-height: 1.6;
+    }
+
+    .setup-input-wrap {
+      width: 100%;
+      max-width: 320px;
+    }
+
+    .setup-input-wrap input {
+      width: 100%;
+      padding: 14px 18px;
+      border: 2px solid #eee;
+      border-radius: 14px;
+      font-family: inherit;
+      font-size: 16px;
+      outline: none;
+      transition: border-color 0.2s;
+      background: #fff;
+      text-align: center;
+    }
+
+    .setup-input-wrap input:focus { border-color: #aad4aa; }
+    .setup-input-wrap input::placeholder { color: #ccc; }
+
+    .setup-btn {
+      width: 100%;
+      margin-top: 12px;
+      padding: 14px;
+      background: #2c2c2c;
+      color: #fff;
+      border: none;
+      border-radius: 14px;
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      letter-spacing: -0.3px;
+      transition: background 0.15s;
+    }
+
+    .setup-btn:hover { background: #444; }
+
+    /* ── Main Screen ──────────────────────────── */
+    #main {
+      display: none;
+      flex-direction: column;
+      max-width: 480px;
+      margin: 0 auto;
+      min-height: 100vh;
+      padding-bottom: 40px;
+    }
+
+    .top-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 20px 0;
+    }
+
+    .top-bar h1 {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.4px;
+    }
+
+    .top-bar .nick-chip {
+      font-size: 13px;
+      color: #888;
+      background: #f0f0ee;
+      padding: 4px 10px;
+      border-radius: 20px;
+    }
+
+    /* ── Tabs ─────────────────────────────────── */
+    .tabs {
+      display: flex;
+      margin: 16px 20px 0;
+      background: #f0f0ee;
+      border-radius: 12px;
+      padding: 4px;
+      gap: 4px;
+    }
+
+    .tab-btn {
+      flex: 1;
+      border: none;
+      background: none;
+      padding: 9px;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      color: #999;
+      border-radius: 9px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .tab-btn.active {
+      background: #fff;
+      color: #2c2c2c;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+
+    .tab-content { display: none; padding: 20px; }
+    .tab-content.active { display: block; }
+
+    /* ── My Tab ───────────────────────────────── */
+    .date-label {
+      font-size: 13px;
+      color: #aaa;
+      margin-bottom: 16px;
+    }
+
+    .prompt-card {
+      background: #fff;
+      border-radius: 18px;
+      padding: 20px;
+      margin-bottom: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+    }
+
+    .prompt-label {
+      font-size: 14px;
+      font-weight: 700;
+      color: #5a9a5a;
+      margin-bottom: 10px;
+      line-height: 1.4;
+      white-space: pre-line;
+    }
+
+    .prompt-textarea {
+      width: 100%;
+      border: none;
+      border-bottom: 1.5px solid #eee;
+      outline: none;
+      font-family: inherit;
+      font-size: 15px;
+      line-height: 1.65;
+      color: #2c2c2c;
+      background: transparent;
+      resize: none;
+      min-height: 36px;
+      padding: 2px 0 6px;
+      transition: border-color 0.2s;
+    }
+
+    .prompt-textarea::placeholder { color: #d0d0ce; font-size: 14px; }
+    .prompt-textarea:focus { border-color: #aad4aa; }
+
+    .save-btn {
+      width: 100%;
+      padding: 15px;
+      background: #2c2c2c;
+      color: #fff;
+      border: none;
+      border-radius: 14px;
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      letter-spacing: -0.3px;
+      transition: background 0.15s, transform 0.1s;
+      margin-top: 4px;
+    }
+
+    .save-btn:hover:not(:disabled) { background: #444; }
+    .save-btn:active:not(:disabled) { transform: scale(0.98); }
+    .save-btn:disabled { opacity: 0.6; cursor: default; }
+    .save-btn.saved { background: #5a9a5a; }
+
+    /* ── Feed Tab ─────────────────────────────── */
+    .feed-card {
+      background: #fff;
+      border-radius: 18px;
+      padding: 18px 20px;
+      margin-bottom: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+    }
+
+    .feed-card.mine {
+      border: 1.5px solid #d4ebd4;
+    }
+
+    .feed-nick {
+      font-size: 13px;
+      font-weight: 700;
+      color: #888;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .me-badge {
+      font-size: 10px;
+      background: #5a9a5a;
+      color: #fff;
+      padding: 2px 6px;
+      border-radius: 6px;
+    }
+
+    .feed-item {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      margin-bottom: 10px;
+    }
+
+    .feed-item:last-child { margin-bottom: 0; }
+
+    .feed-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #5a9a5a;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .feed-text {
+      font-size: 14px;
+      color: #333;
+      line-height: 1.55;
+    }
+
+    .empty-feed {
+      text-align: center;
+      color: #bbb;
+      font-size: 14px;
+      line-height: 1.8;
+      margin-top: 40px;
+    }
+
+    /* ── Toast ────────────────────────────────── */
+    .toast {
+      position: fixed;
+      bottom: 32px;
+      left: 50%;
+      transform: translateX(-50%) translateY(16px);
+      background: #2c2c2c;
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 20px;
+      font-size: 13px;
+      opacity: 0;
+      transition: opacity 0.3s, transform 0.3s;
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* ── Config Warning ───────────────────────── */
+    .config-warning {
+      background: #fff3cd;
+      border: 1px solid #ffc107;
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin: 16px 20px 0;
+      font-size: 13px;
+      line-height: 1.6;
+      color: #7a5c00;
+    }
+
+    .config-warning code {
+      background: rgba(0,0,0,0.06);
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Setup Screen -->
+<div id="setup" style="display:flex">
+  <div class="setup-circle">◯</div>
+  <h2 class="setup-title">오늘의 동글</h2>
+  <p class="setup-sub">엑스보다 동그라미를 더 많이 외친 하루를<br>기록해요. 뭐라고 불러드릴까요?</p>
+  <div class="setup-input-wrap">
+    <input id="nicknameInput" type="text" placeholder="닉네임 입력" maxlength="12" onkeydown="nicknameKeydown(event)" autofocus>
+    <button class="setup-btn" onclick="submitNickname()">시작하기</button>
+  </div>
+</div>
+
+<!-- Main Screen -->
+<div id="main" style="display:none">
+
+  <div class="top-bar">
+    <h1>오늘의 동글 ◯</h1>
+    <div class="nick-chip" id="nicknameLabel"></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" id="tab-my" onclick="switchTab('my')">나의 오늘</button>
+    <button class="tab-btn" id="tab-feed" onclick="switchTab('feed')">모두의 동글</button>
+  </div>
+
+  <!-- 나의 오늘 -->
+  <div class="tab-content active" id="content-my">
+    <p class="date-label" id="dateLabel"></p>
+
+    <div class="prompt-card">
+      <div class="prompt-label">한번 해보자</div>
+      <textarea class="prompt-textarea" id="t1" rows="2" placeholder="오늘 처음 시도해 본 것"></textarea>
+    </div>
+
+    <div class="prompt-card">
+      <div class="prompt-label">이건 잘했어</div>
+      <textarea class="prompt-textarea" id="t2" rows="2" placeholder="오늘 잘한 것"></textarea>
+    </div>
+
+    <div class="prompt-card">
+      <div class="prompt-label">괜찮아
+다음에 더 잘할 수 있어</div>
+      <textarea class="prompt-textarea" id="t3" rows="2" placeholder="괜찮아, 다음엔 더 잘할 수 있어"></textarea>
+    </div>
+
+    <button class="save-btn" id="saveBtn" onclick="saveEntry()">저장하기</button>
+  </div>
+
+  <!-- 모두의 동글 -->
+  <div class="tab-content" id="content-feed">
+    <p class="date-label">오늘 동그라미를 모았어요</p>
+    <div id="feed"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // 날짜 표시
+  const d = new Date();
+  const days = ['일','월','화','수','목','금','토'];
+  const el = document.getElementById('dateLabel');
+  if (el) el.textContent = `${d.getMonth()+1}월 ${d.getDate()}일 ${days[d.getDay()]}요일`;
+</script>
+</body>
+</html>
