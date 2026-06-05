@@ -261,41 +261,72 @@ def _parse_aladin_my_reviews(html: str, title: str, item_id: str) -> list:
 _yes24_session = requests.Session()
 _yes24_session.headers.update(HTML_HEADERS)
 
+def yes24_batch_find_ids(isbns: list, cache: dict):
+    """Playwright로 Yes24 홈 세션을 맺은 뒤 ISBN 목록의 product ID를 일괄 캐싱"""
+    missing = [isbn for isbn in isbns if not cache.get(f"_yes24_pid_{isbn}")]
+    if not missing:
+        return
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        return
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            ctx = browser.new_context(
+                user_agent=_UA,
+                locale="ko-KR",
+                timezone_id="Asia/Seoul",
+            )
+            page = ctx.new_page()
+            page.goto("https://www.yes24.com/", timeout=15000)
+            page.wait_for_load_state("networkidle", timeout=8000)
+
+            for isbn in missing:
+                try:
+                    page.goto(
+                        f"https://www.yes24.com/Product/Search?query={isbn}&domain=BOOK",
+                        timeout=15000,
+                    )
+                    page.wait_for_load_state("networkidle", timeout=8000)
+                    html = page.content()
+                    # onclick에 ISBN이 포함된 패턴에서 product ID 추출
+                    # 예: setGoodsClickExtraCodeHub('029','9791163037873','163301895','0',this)
+                    m = re.search(
+                        rf"setGoodsClickExtraCodeHub\('[^']*',\s*'{re.escape(isbn)}',\s*'(\d+)'",
+                        html,
+                    )
+                    if not m:
+                        # 이미지 URL 패턴: image.yes24.com/goods/{id}/L
+                        # 이미지 alt에 제목이 있는 경우 근처에서 ID 추출
+                        m = re.search(
+                            r"image\.yes24\.com/goods/(\d+)/[LMS]",
+                            html[max(0, html.find(isbn)-500):html.find(isbn)+500] if isbn in html else "",
+                        )
+                    if m:
+                        pid = m.group(1)
+                        # 제목은 알라딘 캐시 우선, 없으면 검색결과에서 추출
+                        title = (
+                            cache.get(f"_aladin_title_{isbn}")
+                            or cache.get(f"_title_{isbn}")
+                            or isbn
+                        )
+                        cache[f"_yes24_pid_{isbn}"] = pid
+                        cache[f"_yes24_title_{isbn}"] = title
+                        print(f"    [예스24] {isbn} → {pid} ({title[:30]})")
+                except Exception:
+                    pass
+                time.sleep(0.5)
+            browser.close()
+    except Exception as e:
+        print(f"    [예스24 Playwright 오류] {e}")
+
+
 def _yes24_product_id(isbn: str, cache: dict) -> tuple:
-    """(product_id, title) 반환 — ISBN 일치 검증 후 사용"""
+    """(product_id, title) 반환"""
     id_key = f"_yes24_pid_{isbn}"
     title_key = f"_yes24_title_{isbn}"
-    if cache.get(id_key):
-        return cache[id_key], cache.get(title_key, isbn)
-    try:
-        r = _yes24_session.get(
-            f"https://www.yes24.com/Product/Search?query={isbn}&domain=BOOK",
-            timeout=15,
-        )
-        # 검색 결과의 상품 ID를 순서대로 확인하며 ISBN이 맞는 것만 사용
-        candidate_ids = re.findall(r"/Product/Goods/(\d+)", r.text)
-        seen = set()
-        for pid in candidate_ids:
-            if pid in seen:
-                continue
-            seen.add(pid)
-            rp = _yes24_session.get(
-                f"https://www.yes24.com/Product/Goods/{pid}",
-                headers={"Accept": "text/html,*/*"},
-                timeout=15,
-            )
-            # isbn meta 태그로 정확히 대조
-            isbn_m = re.search(r'property="books:isbn"\s+content="([^"]+)"', rp.text)
-            if not isbn_m or isbn_m.group(1).replace("-", "") != isbn:
-                continue
-            t = re.search(r'<meta[^>]+property="og:title"[^>]+content="([^"]+)"', rp.text)
-            title = t.group(1).strip() if t else isbn
-            cache[id_key] = pid
-            cache[title_key] = title
-            return pid, title
-        return None, isbn
-    except Exception:
-        return None, isbn
+    return cache.get(id_key), cache.get(title_key, isbn)
 
 
 def get_yes24_reviews(isbn: str, cache: dict) -> list:
@@ -493,6 +524,15 @@ def main():
 
     mode = "[초기화]" if args.init else "[모니터링]"
     print(f"{mode} {datetime.now():%Y-%m-%d %H:%M} — ISBN {len(isbn_list)}개, 서점 {stores}\n")
+
+    # 예스24 product ID 일괄 조회 (미캐싱 ISBN만)
+    if "yes24" in stores:
+        isbns_only = [isbn for isbn, _ in isbn_list]
+        missing = [i for i in isbns_only if not cache.get(f"_yes24_pid_{i}")]
+        if missing:
+            print(f"[예스24] product ID 조회 중 ({len(missing)}개)...")
+            yes24_batch_find_ids(missing, cache)
+            save_cache(cache)
 
     all_new: list = []
 

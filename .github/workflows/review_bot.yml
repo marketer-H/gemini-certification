@@ -21,13 +21,13 @@ jobs:
           python-version: '3.11'
 
       - name: 패키지 설치
-        run: pip install requests
+        run: pip install requests playwright && playwright install chromium --with-deps
 
       - name: config.json 생성
         run: |
           echo '{
             "discord_webhook": "${{ secrets.DISCORD_WEBHOOK }}",
-            "stores": ["aladin", "kyobo"]
+            "stores": ["aladin", "yes24", "kyobo"]
           }' > config.json
 
       - name: 구매평 봇 실행
