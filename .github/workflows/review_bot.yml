@@ -27,7 +27,7 @@ jobs:
         run: |
           echo '{
             "discord_webhook": "${{ secrets.DISCORD_WEBHOOK }}",
-            "stores": ["aladin", "yes24", "kyobo"]
+            "stores": ["aladin", "kyobo"]
           }' > config.json
 
       - name: 구매평 봇 실행

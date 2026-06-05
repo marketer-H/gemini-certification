@@ -262,7 +262,7 @@ _yes24_session = requests.Session()
 _yes24_session.headers.update(HTML_HEADERS)
 
 def _yes24_product_id(isbn: str, cache: dict) -> tuple:
-    """(product_id, title) 반환"""
+    """(product_id, title) 반환 — ISBN 일치 검증 후 사용"""
     id_key = f"_yes24_pid_{isbn}"
     title_key = f"_yes24_title_{isbn}"
     if cache.get(id_key):
@@ -272,15 +272,28 @@ def _yes24_product_id(isbn: str, cache: dict) -> tuple:
             f"https://www.yes24.com/Product/Search?query={isbn}&domain=BOOK",
             timeout=15,
         )
-        m = re.search(r"/Product/Goods/(\d+)", r.text)
-        if not m:
-            return None, isbn
-        pid = m.group(1)
-        t = re.search(r'class="gd_name"[^>]*>([^<]+)', r.text)
-        title = t.group(1).strip() if t else isbn
-        cache[id_key] = pid
-        cache[title_key] = title
-        return pid, title
+        # 검색 결과의 상품 ID를 순서대로 확인하며 ISBN이 맞는 것만 사용
+        candidate_ids = re.findall(r"/Product/Goods/(\d+)", r.text)
+        seen = set()
+        for pid in candidate_ids:
+            if pid in seen:
+                continue
+            seen.add(pid)
+            rp = _yes24_session.get(
+                f"https://www.yes24.com/Product/Goods/{pid}",
+                headers={"Accept": "text/html,*/*"},
+                timeout=15,
+            )
+            # isbn meta 태그로 정확히 대조
+            isbn_m = re.search(r'property="books:isbn"\s+content="([^"]+)"', rp.text)
+            if not isbn_m or isbn_m.group(1).replace("-", "") != isbn:
+                continue
+            t = re.search(r'<meta[^>]+property="og:title"[^>]+content="([^"]+)"', rp.text)
+            title = t.group(1).strip() if t else isbn
+            cache[id_key] = pid
+            cache[title_key] = title
+            return pid, title
+        return None, isbn
     except Exception:
         return None, isbn
 
